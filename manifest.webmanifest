@@ -1,0 +1,10 @@
+{
+  "name": "今日兑现",
+  "short_name": "今日兑现",
+  "description": "今天的学习承诺，今天兑现。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f3ec",
+  "theme_color": "#155e52",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
