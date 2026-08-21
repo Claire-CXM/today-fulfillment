@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
+    "build": "node build.mjs",
     "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@ionic/core": "^8.8.18"
   }
 }

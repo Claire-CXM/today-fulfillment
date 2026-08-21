@@ -7,7 +7,8 @@
     <meta name="description" content="今天的学习承诺，今天兑现。" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="node_modules/@ionic/core/css/ionic.bundle.css" />
+  <link rel="stylesheet" href="styles.css?v=10" />
     <title>今日兑现</title>
   </head>
   <body>
@@ -20,6 +21,11 @@
         <button class="date-chip" id="today-button" type="button" aria-label="回到今天"></button>
       </header>
 
+      <button class="mini-focus-bar" id="mini-focus-bar" type="button" hidden>
+        <span><i class="pulse"></i><strong id="mini-focus-title">正在专注</strong></span>
+        <time id="mini-focus-time">00:00</time>
+      </button>
+
       <section class="app-view" id="view-today" data-view="today">
         <section class="hero" aria-labelledby="daily-title">
           <div>
@@ -30,42 +36,52 @@
           <div class="daily-score" aria-label="今日完成进度"><strong id="daily-score">0/0</strong><span>已完成</span></div>
         </section>
 
-        <section class="focus-panel" id="focus-panel" hidden aria-live="polite">
-          <div class="focus-heading"><span class="pulse"></span><span id="focus-title"></span><button class="text-button" id="focus-task-button" type="button">查看任务</button></div>
-          <div class="timer" id="timer">00:00</div>
-          <div class="focus-controls">
-            <button class="button secondary" id="pause-button" type="button">暂停</button>
-            <button class="button quiet" id="finish-button" type="button">完成任务</button>
-          </div>
-          <p class="pause-hint" id="pause-hint"></p>
-        </section>
-
         <section class="section-heading">
           <div><p class="eyebrow">任务清单</p><h2>今天要兑现什么？</h2></div>
-          <span class="counter" id="task-count">0 个任务</span>
+          <div class="heading-actions"><span class="counter" id="task-count">0 个任务</span><button class="button primary compact-button" id="open-create-task" type="button">+ 新建</button></div>
         </section>
         <section id="task-list" class="task-list" aria-live="polite"></section>
+        <section class="suggestion-card" id="suggestion-card" aria-labelledby="suggestion-title" hidden>
+          <div class="section-heading compact"><div><p class="eyebrow">建议任务</p><h2 id="suggestion-title">先从三个清晰目标开始</h2></div><button class="button outline compact-button" id="publish-all-suggestions" type="button">全部发布</button></div>
+          <p class="muted">建议任务不会自动计入今天，可以单独发布或一次发布全部。</p>
+          <div class="suggestion-list" id="suggestion-list"></div>
+        </section>
+      </section>
 
-        <section class="create-card" aria-labelledby="create-title">
-          <div class="create-copy"><p class="eyebrow">新增任务</p><h2 id="create-title">给今天一个清晰目标</h2></div>
+      <section class="app-view" id="view-task-editor" data-view="task-editor" hidden>
+        <div class="subpage-head"><button class="icon-button" id="close-task-editor" type="button" aria-label="返回任务清单">‹</button><div><p class="eyebrow" id="task-editor-eyebrow">新增任务</p><h2 id="task-editor-heading">给今天一个清晰目标</h2></div></div>
+        <section class="editor-card">
           <form id="task-form" novalidate>
             <label>学习内容<input id="task-title" name="title" maxlength="60" placeholder="例如：完成第 3 章习题" required /></label>
-            <label>预计时长（分钟）<input id="task-minutes" name="minutes" type="number" min="1" max="1440" inputmode="numeric" placeholder="例如：45" required /></label>
+            <fieldset class="duration-field"><legend>预计时长</legend><div class="duration-row"><input id="task-duration" name="duration" type="number" min="1" max="1440" step="1" inputmode="decimal" placeholder="例如：45" aria-label="预计时长数值" aria-describedby="duration-hint" required /><div class="unit-switch" role="group" aria-label="时长单位"><button class="active" type="button" data-duration-unit="minutes" aria-pressed="true">分钟</button><button type="button" data-duration-unit="hours" aria-pressed="false">小时</button></div></div><small id="duration-hint">最短 1 分钟，且今天的计划总时长不能跨过 24:00。</small></fieldset>
             <p class="form-message" id="form-message" role="alert"></p>
-            <button class="button primary" type="submit">加入今天</button>
+            <div class="editor-actions"><button class="button quiet" id="cancel-task-editor" type="button">取消</button><button class="button primary" id="save-task-button" type="submit">加入今天</button></div>
           </form>
+        </section>
+      </section>
+
+      <section class="app-view focus-view" id="view-focus" data-view="focus" hidden>
+        <div class="subpage-head"><button class="icon-button" id="leave-focus" type="button" aria-label="返回任务清单">‹</button><div><p class="eyebrow">专注中</p><h2 id="focus-title">当前任务</h2></div><button class="button outline compact-button" id="float-timer-button" type="button">开启浮窗</button></div>
+        <section class="focus-stage" aria-live="polite">
+          <p class="focus-state" id="focus-state">保持节奏</p>
+          <div class="timer" id="timer">00:00</div>
+          <div class="focus-progress"><span id="focus-progress-bar"></span></div>
+          <p class="pause-hint" id="pause-hint"></p>
+          <div class="focus-node-list" id="focus-node-list"></div>
+          <div class="focus-controls">
+            <button class="button secondary" id="pause-button" type="button">普通暂停</button>
+            <button class="button outline" id="interrupt-button" type="button">特殊中断</button>
+            <button class="button primary" id="finish-button" type="button">完成任务</button>
+            <button class="button danger" id="abandon-focus-button" type="button">主动放弃</button>
+          </div>
         </section>
       </section>
 
       <section class="app-view" id="view-calendar" data-view="calendar" hidden>
         <div class="page-intro"><p class="eyebrow">学习足迹</p><h2>每一次兑现，都算数。</h2><p>查看每日状态，为黄色日期补做未完成任务，也可以使用自由日卡。</p></div>
-        <section class="calendar-card" aria-labelledby="calendar-title">
-          <div class="section-heading compact"><div><p class="eyebrow">本周足迹</p><h2 id="calendar-title">日历状态</h2></div></div>
-          <div class="calendar-legend"><span><i class="dot green"></i>全部完成</span><span><i class="dot yellow"></i>部分完成</span><span><i class="dot red"></i>未完成</span><span><i class="dot free"></i>自由日</span></div>
-          <div class="week" id="week-calendar"></div>
-        </section>
         <section class="calendar-card" aria-labelledby="month-title">
-          <div class="section-heading compact"><div><p class="eyebrow">月度视图</p><h2 id="month-title">本月兑现地图</h2></div><span class="counter" id="month-label"></span></div>
+          <div class="section-heading compact"><button class="icon-button" id="previous-month" type="button" aria-label="上个月">‹</button><div class="month-heading"><p class="eyebrow">月度视图</p><h2 id="month-title">本月兑现地图</h2><span id="month-label"></span></div><button class="icon-button" id="next-month" type="button" aria-label="下个月">›</button></div>
+          <div class="calendar-legend"><span><i class="dot green"></i>全部完成</span><span><i class="dot yellow"></i>部分完成</span><span><i class="dot red"></i>未完成</span><span><i class="dot free"></i>自由日</span></div>
           <div class="month-weekdays" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
           <div class="month-grid" id="month-calendar"></div>
         </section>
@@ -87,6 +103,23 @@
         <section class="monthly-report" id="monthly-report" aria-live="polite"></section>
       </section>
 
+      <section class="app-view" id="view-rewards" data-view="rewards" hidden>
+        <div class="page-intro"><p class="eyebrow">奖惩</p><h2>每一次兑现，都有回应。</h2><p>集中查看奖励、阶段解锁和安全约束记录。</p></div>
+        <section class="stage-card" id="stage-reward-card"></section>
+        <section class="pool-card">
+          <div class="section-heading compact"><div><p class="eyebrow">小奖励池</p><h2>完成之后，给自己一点甜头</h2></div><span class="counter" id="reward-count"></span></div>
+          <form class="inline-form" id="reward-form"><input id="reward-input" maxlength="60" placeholder="例如：看一集喜欢的节目" required><button class="button primary" type="submit">添加</button></form>
+          <div class="pool-list" id="reward-list"></div>
+          <div class="record-list" id="reward-history"></div>
+        </section>
+        <section class="pool-card danger-pool">
+          <div class="section-heading compact"><div><p class="eyebrow">安全惩罚池</p><h2>只做安全、可执行的约束</h2></div><span class="counter" id="punishment-count"></span></div>
+          <form class="inline-form" id="punishment-form"><input id="punishment-input" maxlength="60" placeholder="例如：整理书桌 10 分钟" required><button class="button primary" type="submit">添加</button></form>
+          <div class="pool-list" id="punishment-list"></div>
+          <div class="record-list" id="penalty-history"></div>
+        </section>
+      </section>
+
       <section class="app-view" id="view-profile" data-view="profile" hidden>
         <div class="page-intro"><p class="eyebrow">我的</p><h2>让工具适应你的节奏。</h2><p>当前为游客本地模式，数据只保存在这台设备的浏览器中。</p></div>
         <section class="profile-card">
@@ -101,20 +134,10 @@
         <section class="preference-card">
           <div class="section-heading compact"><div><p class="eyebrow">督促偏好</p><h2>让提醒有用，也有分寸</h2></div></div>
           <label>文案风格<select id="prompt-style"><option value="gentle">温和鼓励</option><option value="direct">直接督促</option><option value="humorous">幽默自嘲</option></select></label>
+          <label>每日计划提醒时间<input id="reminder-time" type="time" value="10:00" /></label>
+          <div class="notification-setting"><span><strong>系统通知</strong><small id="notification-status">尚未授权通知</small></span><button class="button quiet" id="notification-permission" type="button">授权通知</button></div>
           <label class="switch-row"><span><strong>愧疚式文案</strong><small>关闭后所有提醒只陈述事实与行动建议</small></span><input id="guilt-copy" type="checkbox" role="switch"></label>
           <label class="switch-row"><span><strong>减少动画</strong><small>关闭烟花与大幅庆祝动效</small></span><input id="reduce-motion" type="checkbox" role="switch"></label>
-        </section>
-        <section class="pool-card">
-          <div class="section-heading compact"><div><p class="eyebrow">小奖励池</p><h2>完成之后，给自己一点甜头</h2></div><span class="counter" id="reward-count"></span></div>
-          <form class="inline-form" id="reward-form"><input id="reward-input" maxlength="60" placeholder="例如：看一集喜欢的节目" required><button class="button primary" type="submit">添加</button></form>
-          <div class="pool-list" id="reward-list"></div>
-          <div class="record-list" id="reward-history"></div>
-        </section>
-        <section class="pool-card danger-pool">
-          <div class="section-heading compact"><div><p class="eyebrow">安全惩罚池</p><h2>只做安全、可执行的约束</h2></div><span class="counter" id="punishment-count"></span></div>
-          <form class="inline-form" id="punishment-form"><input id="punishment-input" maxlength="60" placeholder="例如：整理书桌 10 分钟" required><button class="button primary" type="submit">添加</button></form>
-          <div class="pool-list" id="punishment-list"></div>
-          <div class="record-list" id="penalty-history"></div>
         </section>
       </section>
     </main>
@@ -123,16 +146,20 @@
       <button class="nav-item active" type="button" data-target="today" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span><span>今天</span><i class="nav-badge" id="today-nav-badge" hidden></i></button>
       <button class="nav-item" type="button" data-target="calendar"><span class="nav-icon" aria-hidden="true">▦</span><span>日历</span></button>
       <button class="nav-item" type="button" data-target="review"><span class="nav-icon" aria-hidden="true">◴</span><span>复盘</span></button>
+      <button class="nav-item" type="button" data-target="rewards"><span class="nav-icon" aria-hidden="true">◇</span><span>奖惩</span></button>
       <button class="nav-item" type="button" data-target="profile"><span class="nav-icon" aria-hidden="true">●</span><span>我的</span></button>
     </nav>
 
-    <dialog id="node-dialog" class="modal"><form method="dialog" id="node-form"><div class="modal-head"><div><p class="eyebrow">节点</p><h2 id="node-dialog-title">拆分任务</h2></div><button class="icon-button" value="cancel" aria-label="关闭">×</button></div><p class="muted">最多 10 个节点。勾选后自动更新任务进度。</p><div id="node-list" class="node-editor"></div><button class="button outline" id="add-node-button" type="button">+ 添加节点</button><div class="modal-actions"><button class="button quiet" value="cancel">取消</button><button class="button primary" id="save-nodes-button" value="default">保存节点</button></div></form></dialog>
+    <dialog id="node-dialog" class="modal"><form method="dialog" id="node-form"><div class="modal-head"><div><p class="eyebrow">节点</p><h2 id="node-dialog-title">拆分任务</h2></div><button class="icon-button" value="cancel" aria-label="关闭">×</button></div><p class="muted">最多 10 个节点，所有节点时长之和必须等于任务总时长。</p><div class="allocation-status" id="node-allocation"></div><div id="node-list" class="node-editor"></div><div class="node-tools"><button class="button outline" id="add-node-button" type="button">+ 添加节点</button><button class="button quiet" id="smart-split-button" type="button">规则智能拆分</button></div><div class="modal-actions"><button class="button quiet" value="cancel">取消</button><button class="button primary" id="save-nodes-button" value="default">保存节点</button></div></form></dialog>
     <dialog id="warning-dialog" class="modal notice-modal"><div><p class="eyebrow">临期提醒</p><h2 id="warning-title">距离结束不远了</h2><p id="warning-copy"></p><button class="button primary" id="warning-continue" type="button">继续兑现</button></div></dialog>
     <dialog id="reward-dialog" class="modal reward-modal"><div><p class="eyebrow">任务奖励</p><h2>选一个，认真犒劳自己</h2><p class="muted" id="reward-task-name"></p><div class="reward-options" id="reward-options"></div><div class="modal-actions"><button class="button outline" id="shuffle-rewards" type="button">换一批</button><button class="button primary" id="claim-reward" type="button" disabled>领取奖励</button></div></div></dialog>
-    <dialog id="penalty-dialog" class="modal penalty-modal"><div><p class="eyebrow">今日约束</p><h2>未按时创建今日任务</h2><p class="penalty-content" id="penalty-content"></p><p class="muted">本次结果不能更换。完成后请自行诚信确认。</p><div class="modal-actions"><button class="button quiet" id="penalty-later" type="button">稍后完成</button><button class="button primary" id="penalty-done" type="button">确认已完成</button></div></div></dialog>
-    <dialog id="appeal-dialog" class="modal"><form id="appeal-form"><div class="modal-head"><div><p class="eyebrow">一次申辩机会</p><h2>说明这次没有完成的原因</h2></div><button class="icon-button" type="button" id="appeal-close" aria-label="关闭">×</button></div><label>申辩原因<textarea id="appeal-reason" maxlength="300" required placeholder="如实记录发生了什么"></textarea></label><label class="honesty-check"><input id="appeal-honesty" type="checkbox" required><span>我确认以上原因真实，并愿意后续补做</span></label><button class="button primary" type="submit">转为黄色待补</button></form></dialog>
+    <dialog id="penalty-dialog" class="modal penalty-modal"><div><p class="eyebrow">今日约束</p><h2 id="penalty-title">兑现约束</h2><p class="muted" id="penalty-trigger"></p><p class="penalty-content" id="penalty-content"></p><p class="muted">本次结果不能更换。完成后请自行诚信确认。</p><div class="modal-actions"><button class="button quiet" id="penalty-later" type="button">稍后完成</button><button class="button primary" id="penalty-done" type="button">确认已完成</button></div></div></dialog>
+    <dialog id="appeal-dialog" class="modal"><form id="appeal-form"><div class="modal-head"><div><p class="eyebrow">一次申辩机会</p><h2>说明这次没有完成的原因</h2></div><button class="icon-button" type="button" id="appeal-close" aria-label="关闭">×</button></div><p class="review-mode">当前使用：本地规则审核（未调用云端 AI）</p><label>申辩原因<textarea id="appeal-reason" maxlength="300" required placeholder="如实记录发生了什么"></textarea></label><label class="honesty-check"><input id="appeal-honesty" type="checkbox" required><span>我确认以上原因真实，并愿意后续补做</span></label><p class="appeal-result" id="appeal-result" role="status"></p><button class="button primary" type="submit">提交审核</button></form></dialog>
+    <dialog id="interrupt-dialog" class="modal"><form id="interrupt-form"><div class="modal-head"><div><p class="eyebrow">特殊中断</p><h2>记录无法继续的原因</h2></div><button class="icon-button" type="button" id="interrupt-close" aria-label="关闭">×</button></div><label>中断原因<textarea id="interrupt-reason" maxlength="300" required placeholder="例如：突发身体不适、临时紧急事务"></textarea></label><p class="muted">特殊中断不限时并保留进度；跨过 24:00 后自动转为黄色待补。</p><button class="button primary" type="submit">确认中断</button></form></dialog>
+    <dialog id="confirm-dialog" class="modal confirm-modal"><div><p class="eyebrow">请确认</p><h2 id="confirm-title">确认操作</h2><p id="confirm-message"></p><div class="modal-actions"><button class="button quiet" id="confirm-cancel" type="button">取消</button><button class="button primary" id="confirm-accept" type="button">确认</button></div></div></dialog>
+    <ion-alert id="ionic-alert"></ion-alert>
     <div class="celebration" id="celebration" hidden aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><strong>兑现成功</strong></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="app.js?v=5"></script>
+  <script type="module" src="app.js?v=10"></script>
   </body>
 </html>
