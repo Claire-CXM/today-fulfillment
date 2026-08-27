@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [app, html, worker, styles] = await Promise.all([
+const [app, html, worker, styles, build, design] = await Promise.all([
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../sw.js', import.meta.url), 'utf8'),
-  readFile(new URL('../styles.css', import.meta.url), 'utf8')
+  readFile(new URL('../styles.css', import.meta.url), 'utf8'),
+  readFile(new URL('../build.mjs', import.meta.url), 'utf8'),
+  readFile(new URL('../DESIGN.md', import.meta.url), 'utf8')
 ]);
 
 test('任务表单把当前时长单位传入真实换算函数', () => {
@@ -39,6 +41,15 @@ test('建议任务支持换一批且无节点专注页不提供手动进度控�
   assert.match(app, /pickSuggestionBatch\(SUGGESTION_POOL, currentSuggestions\)/);
   assert.doesNotMatch(app, /data-manual-progress/);
   assert.match(app, /focusProgress\.hidden = !task\.nodes\.length/);
+  assert.match(app, /const nodeProgress = task\.nodes\.length \?/);
+  assert.match(app, /\$\{nodeProgress\}<div class="task-actions">/);
+});
+
+test('兑现花径使用真实任务完成比例并保留可读状态', () => {
+  assert.match(html, /id="daily-path-fill"/);
+  assert.match(html, /id="daily-path-caption"/);
+  assert.match(app, /Math\.round\(\(completed \/ tasks\.length\) \* 100\)/);
+  assert.match(app, /dailyPathCaption\.textContent/);
 });
 
 test('复盘月度状态使用与日历一致的文字', () => {
@@ -60,4 +71,49 @@ test('页面与 Service Worker 使用一致的资源版本', () => {
 test('原生页面滚动不受 Ionic 全局 body 锁定影响', () => {
   assert.match(styles, /html \{ min-height:100%; overflow-y:scroll; overscroll-behavior-y:auto; \}/);
   assert.match(styles, /body \{ position:static;[\s\S]*overflow-y:auto;[\s\S]*touch-action:pan-y;/);
+});
+
+test('图二视觉资产、真实导航图标与构建产物保持完整', () => {
+  assert.match(design, /图二/);
+  assert.match(html, /assets\/journey-stones-v3\.png/);
+  assert.match(app, /assets\/growth-badge\.png/);
+  assert.match(html, /assets\/icons\/home-outline\.svg/);
+  assert.match(build, /cp\(join\(root, 'assets'\), join\(output, 'assets'\)/);
+  assert.match(worker, /assets\/icons\/trophy-outline\.svg/);
+});
+
+test('主导航切页回到顶部且悬浮导航不受 body 变换影响', () => {
+  assert.match(app, /window\.scrollTo\(\{ top: 0, left: 0, behavior: 'instant' \}\)/);
+  assert.match(styles, /body \{ transform:none !important; \}/);
+});
+
+test('子页隐藏主导航并统一使用品牌确认弹窗与真实图标资产', () => {
+  assert.match(html, /<body data-view="today">/);
+  assert.match(html, /class="profile-mark"><img src="assets\/growth-badge\.png"/);
+  assert.match(html, /class="info-icon"><img src="assets\/icons\/calendar-outline\.svg"/);
+  assert.match(app, /showConfirm\(title, message, acceptLabel = '确认'\) \{ return showFallbackConfirm/);
+  assert.match(styles, /body\[data-view="focus"\] \.bottom-nav/);
+  assert.match(styles, /body\[data-view="task-editor"\] \.mini-focus-bar/);
+});
+
+test('临时状态使用真实素材、统一弹窗并覆盖窄屏布局', () => {
+  assert.match(html, /class="celebration-card"><img src="assets\/growth-badge\.png"/);
+  assert.match(html, /ionic\/svg\/close\.svg/);
+  assert.match(app, /class="empty-state-asset" src="assets\/growth-badge\.png"/);
+  assert.doesNotMatch(app, /class="empty-state-mark">今/);
+  assert.match(styles, /V24: transient states and feedback/);
+  assert.match(styles, /@media \(max-width:360px\)/);
+  assert.match(worker, /ionic\/svg\/close\.svg/);
+});
+
+test('最终交互细节使用正式方向图标与可访问触控尺寸', () => {
+  assert.match(html, /ionic\/svg\/caret-back\.svg/);
+  assert.match(html, /ionic\/svg\/caret-forward\.svg/);
+  assert.doesNotMatch(html, /aria-label="返回任务清单">‹/);
+  assert.doesNotMatch(html, /aria-label="上个月">‹/);
+  assert.match(worker, /ionic\/svg\/caret-back\.svg/);
+  assert.match(styles, /V25: final interaction and accessibility polish/);
+  assert.match(styles, /summary:focus-visible/);
+  assert.match(styles, /\.icon-button \{ width:44px; height:44px; \}/);
+  assert.match(styles, /\.node-remove \{ width:44px; height:44px;/);
 });

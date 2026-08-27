@@ -7,6 +7,7 @@ const files = ['index.html', 'app.js', 'logic.js', 'storage.js', 'styles.css', '
 
 await mkdir(output, { recursive: true });
 await Promise.all(files.map(file => cp(join(root, file), join(output, file), { force: true })));
+await cp(join(root, 'assets'), join(output, 'assets'), { recursive: true, force: true });
 await mkdir(join(output, 'node_modules', '@ionic'), { recursive: true });
 await cp(join(root, 'node_modules', '@ionic', 'core'), join(output, 'node_modules', '@ionic', 'core'), { recursive: true, force: true });
 
