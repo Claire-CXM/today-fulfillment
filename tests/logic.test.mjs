@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PAUSE_LIMIT_SECONDS,
+  advanceRunningTimer,
   availableMinutesUntilMidnight,
   calendarStateForTasks,
   durationToMinutes,
@@ -9,8 +10,11 @@ import {
   freeDayCards,
   isTaskTimeAllowed,
   monthCompletionRate,
+  nextReminderTime,
   nodeDurationValid,
+  pickSuggestionBatch,
   reviewAppeal,
+  sortTasksForDisplay,
   taskProgress,
   warningMinutes
 } from '../logic.js';
@@ -19,8 +23,52 @@ test('节点进度直接使用应用业务模块计算', () => {
   assert.equal(taskProgress({ nodes: [{ done: true }, { done: false }, { done: true }] }), 67);
 });
 
-test('无节点任务使用手动进度', () => {
+test('无节点任务兼容既有进度数据', () => {
   assert.equal(taskProgress({ nodes: [], manualProgress: 40 }), 40);
+});
+
+test('换一批建议时避开当前三条且不重复', () => {
+  const pool = Array.from({ length: 7 }, (_, index) => ({ id: `suggestion-${index}` }));
+  const current = pool.slice(0, 3);
+  const next = pickSuggestionBatch(pool, current, 3, () => 0.4);
+  assert.equal(next.length, 3);
+  assert.equal(new Set(next.map(item => item.id)).size, 3);
+  assert.equal(next.some(item => current.includes(item)), false);
+});
+
+test('任务按进行状态优先、已结束倒数第二、已完成最后排序', () => {
+  const tasks = [
+    { id: 'done', status: 'completed' },
+    { id: 'planned', status: 'planned' },
+    { id: 'failed', status: 'failed' },
+    { id: 'paused', status: 'paused' },
+    { id: 'interrupted', status: 'interrupted' },
+    { id: 'running', status: 'in_progress' },
+    { id: 'makeup', status: 'makeup' }
+  ];
+  assert.deepEqual(sortTasksForDisplay(tasks).map(task => task.id), ['running', 'paused', 'interrupted', 'makeup', 'planned', 'failed', 'done']);
+});
+
+test('倒计时保留不足一秒的余量并按现实经过时间推进', () => {
+  const task = { remainingSeconds: 60, focusedSeconds: 0, lastTickAt: 10_000 };
+  const first = advanceRunningTimer(task, 10_999);
+  assert.equal(first.consumedSeconds, 0);
+  assert.equal(first.lastTickAt, 10_000);
+  const second = advanceRunningTimer(first, 11_998);
+  assert.equal(second.remainingSeconds, 59);
+  assert.equal(second.lastTickAt, 11_000);
+  const third = advanceRunningTimer(second, 12_997);
+  assert.equal(third.remainingSeconds, 58);
+  const afterBackground = advanceRunningTimer(third, 75_000);
+  assert.equal(afterBackground.remainingSeconds, 0);
+  assert.equal(afterBackground.focusedSeconds, 60);
+});
+
+test('提醒精确定时选择今天尚未到达的时间或次日同一时间', () => {
+  const before = new Date(2026, 7, 26, 9, 30, 0);
+  assert.equal(nextReminderTime(before, '10:00').getTime(), new Date(2026, 7, 26, 10, 0, 0).getTime());
+  const after = new Date(2026, 7, 26, 10, 0, 1);
+  assert.equal(nextReminderTime(after, '10:00').getTime(), new Date(2026, 7, 27, 10, 0, 0).getTime());
 });
 
 test('分钟和小时输入都能换算且最小为一分钟', () => {

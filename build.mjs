@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 const root = process.cwd();
 const output = join(root, 'dist');
-const files = ['index.html', 'app.js', 'logic.js', 'styles.css', 'sw.js', 'manifest.webmanifest', 'icon.svg'];
+const files = ['index.html', 'app.js', 'logic.js', 'storage.js', 'styles.css', 'sw.js', 'manifest.webmanifest', 'icon.svg'];
 
 await mkdir(output, { recursive: true });
 await Promise.all(files.map(file => cp(join(root, file), join(output, file), { force: true })));

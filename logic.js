@@ -1,6 +1,53 @@
 export const PAUSE_LIMIT_SECONDS = 45 * 60;
 export const PAUSE_LIMIT_COUNT = 3;
 
+export function pickSuggestionBatch(pool, current = [], size = 3, random = Math.random) {
+  const currentIds = new Set(current.map(item => item.id));
+  const alternatives = pool.filter(item => !currentIds.has(item.id));
+  const source = alternatives.length >= size ? alternatives : pool;
+  const shuffled = [...source];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+  }
+  return shuffled.slice(0, Math.min(size, shuffled.length));
+}
+
+export function sortTasksForDisplay(tasks) {
+  const priority = { in_progress: 0, paused: 1, interrupted: 2, makeup: 3, planned: 4, failed: 8, completed: 9 };
+  return tasks
+    .map((task, index) => ({ task, index }))
+    .sort((left, right) => (priority[left.task.status] ?? 5) - (priority[right.task.status] ?? 5) || left.index - right.index)
+    .map(item => item.task);
+}
+
+export function advanceRunningTimer(task, now = Date.now()) {
+  const remainingSeconds = Math.max(0, Number(task?.remainingSeconds) || 0);
+  const focusedSeconds = Math.max(0, Number(task?.focusedSeconds) || 0);
+  const previousTick = Number(task?.lastTickAt);
+  if (!Number.isFinite(previousTick) || previousTick <= 0 || now < previousTick) {
+    return { remainingSeconds, focusedSeconds, lastTickAt: now, consumedSeconds: 0 };
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((now - previousTick) / 1000));
+  const consumedSeconds = Math.min(remainingSeconds, elapsedSeconds);
+  return {
+    remainingSeconds: Math.max(0, remainingSeconds - consumedSeconds),
+    focusedSeconds: focusedSeconds + consumedSeconds,
+    lastTickAt: previousTick + elapsedSeconds * 1000,
+    consumedSeconds
+  };
+}
+
+export function nextReminderTime(now, time = '10:00') {
+  const [rawHour, rawMinute] = String(time).split(':').map(Number);
+  const hour = Number.isInteger(rawHour) && rawHour >= 0 && rawHour <= 23 ? rawHour : 10;
+  const minute = Number.isInteger(rawMinute) && rawMinute >= 0 && rawMinute <= 59 ? rawMinute : 0;
+  const next = new Date(now);
+  next.setHours(hour, minute, 0, 0);
+  if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+  return next;
+}
+
 export function taskProgress(task) {
   const nodes = Array.isArray(task?.nodes) ? task.nodes : [];
   if (nodes.length) return Math.round(nodes.filter(node => node.done).length / nodes.length * 100);

@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icon.svg" />
     <link rel="stylesheet" href="node_modules/@ionic/core/css/ionic.bundle.css" />
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=14" />
     <title>今日兑现</title>
   </head>
   <body>
@@ -42,7 +42,7 @@
         </section>
         <section id="task-list" class="task-list" aria-live="polite"></section>
         <section class="suggestion-card" id="suggestion-card" aria-labelledby="suggestion-title" hidden>
-          <div class="section-heading compact"><div><p class="eyebrow">建议任务</p><h2 id="suggestion-title">先从三个清晰目标开始</h2></div><button class="button outline compact-button" id="publish-all-suggestions" type="button">全部发布</button></div>
+          <div class="section-heading compact"><div><p class="eyebrow">建议任务</p><h2 id="suggestion-title">先从三个清晰目标开始</h2></div><div class="suggestion-actions"><button class="button quiet compact-button" id="shuffle-suggestions" type="button">换一批</button><button class="button outline compact-button" id="publish-all-suggestions" type="button">全部发布</button></div></div>
           <p class="muted">建议任务不会自动计入今天，可以单独发布或一次发布全部。</p>
           <div class="suggestion-list" id="suggestion-list"></div>
         </section>
@@ -65,7 +65,7 @@
         <section class="focus-stage" aria-live="polite">
           <p class="focus-state" id="focus-state">保持节奏</p>
           <div class="timer" id="timer">00:00</div>
-          <div class="focus-progress"><span id="focus-progress-bar"></span></div>
+          <div class="focus-progress" id="focus-progress"><span id="focus-progress-bar"></span></div>
           <p class="pause-hint" id="pause-hint"></p>
           <div class="focus-node-list" id="focus-node-list"></div>
           <div class="focus-controls">
@@ -127,7 +127,7 @@
           <div><p class="eyebrow">当前身份</p><h2>本地体验用户</h2><p>无需登录即可使用 P1 核心功能</p></div>
         </section>
         <section class="settings-card" aria-label="应用信息">
-          <div><span>数据存储</span><strong>仅本机</strong></div>
+          <div><span>数据存储</span><strong>本机双重备份</strong></div>
           <div><span>当前阶段</span><strong>P1</strong></div>
           <div><span>PWA 状态</span><strong>支持安装</strong></div>
         </section>
@@ -135,7 +135,8 @@
           <div class="section-heading compact"><div><p class="eyebrow">督促偏好</p><h2>让提醒有用，也有分寸</h2></div></div>
           <label>文案风格<select id="prompt-style"><option value="gentle">温和鼓励</option><option value="direct">直接督促</option><option value="humorous">幽默自嘲</option></select></label>
           <label>每日计划提醒时间<input id="reminder-time" type="time" value="10:00" /></label>
-          <div class="notification-setting"><span><strong>系统通知</strong><small id="notification-status">尚未授权通知</small></span><button class="button quiet" id="notification-permission" type="button">授权通知</button></div>
+          <div class="notification-setting"><span><strong>系统通知</strong><small id="notification-status">尚未授权通知</small></span><div class="notification-actions"><button class="button outline" id="test-notification" type="button" disabled>测试通知</button><button class="button quiet" id="notification-permission" type="button">授权通知</button></div></div>
+          <p class="reminder-diagnostics" id="reminder-diagnostics" role="status">正在检查提醒状态…</p>
           <label class="switch-row"><span><strong>愧疚式文案</strong><small>关闭后所有提醒只陈述事实与行动建议</small></span><input id="guilt-copy" type="checkbox" role="switch"></label>
           <label class="switch-row"><span><strong>减少动画</strong><small>关闭烟花与大幅庆祝动效</small></span><input id="reduce-motion" type="checkbox" role="switch"></label>
         </section>
@@ -160,6 +161,6 @@
     <ion-alert id="ionic-alert"></ion-alert>
     <div class="celebration" id="celebration" hidden aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><strong>兑现成功</strong></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=10"></script>
+  <script type="module" src="app.js?v=14"></script>
   </body>
 </html>

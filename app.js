@@ -2,6 +2,7 @@ import { defineCustomElements } from './node_modules/@ionic/core/loader/index.es
 import {
   PAUSE_LIMIT_COUNT,
   PAUSE_LIMIT_SECONDS,
+  advanceRunningTimer,
   availableMinutesUntilMidnight,
   calendarStateForTasks,
   durationToMinutes,
@@ -10,19 +11,28 @@ import {
   isTaskTimeAllowed,
   monthCompletionRate,
   nodeDurationValid,
+  nextReminderTime,
+  pickSuggestionBatch,
   reviewAppeal,
+  sortTasksForDisplay,
   taskProgress,
   warningMinutes
-} from './logic.js?v=10';
+} from './logic.js?v=14';
+import { flushPersistedState, loadPersistedState, requestPersistentStorage, savePersistedState } from './storage.js?v=14';
 
 defineCustomElements(window);
 
-const STORAGE_KEY = 'today-fulfillment-state-v1';
 const MAX_NODES = 10;
-const DEFAULT_SUGGESTIONS = [
-  { title: '复习今天最重要的知识点', minutes: 30 },
-  { title: '完成一组练习并订正', minutes: 45 },
-  { title: '整理笔记并写下明日重点', minutes: 20 }
+const SUGGESTION_POOL = [
+  { id: 'review-key-point', title: '复习今天最重要的知识点', minutes: 30 },
+  { id: 'practice-corrections', title: '完成一组练习并订正', minutes: 45 },
+  { id: 'organize-notes', title: '整理笔记并写下明日重点', minutes: 20 },
+  { id: 'recite-core', title: '背诵并默写一组核心内容', minutes: 25 },
+  { id: 'preview-next', title: '预习下一节并标出疑问', minutes: 30 },
+  { id: 'error-review', title: '整理近期错题并总结原因', minutes: 40 },
+  { id: 'deep-reading', title: '精读一篇材料并写摘要', minutes: 35 },
+  { id: 'explain-aloud', title: '用自己的话讲清一个难点', minutes: 20 },
+  { id: 'weekly-review', title: '回顾本周进度并调整计划', minutes: 30 }
 ];
 const DEFAULT_REWARDS = ['看一集喜欢的节目', '喝一杯喜欢的饮品', '自由放松 20 分钟', '散步听歌 15 分钟', '吃一份小甜点'];
 const DEFAULT_PUNISHMENTS = ['整理书桌 10 分钟', '额外复习 10 分钟', '做 15 个深蹲', '当天减少娱乐 20 分钟'];
@@ -35,16 +45,19 @@ const NODE_ENCOURAGEMENT = ['这一格完成得很扎实。', '节点已拿下�
 
 const $ = selector => document.querySelector(selector);
 const els = {
-  taskList: $('#task-list'), taskForm: $('#task-form'), title: $('#task-title'), duration: $('#task-duration'), formMessage: $('#form-message'), taskCount: $('#task-count'), dailyScore: $('#daily-score'), dailyNote: $('#daily-note'), todayButton: $('#today-button'), openCreateTask: $('#open-create-task'), closeTaskEditor: $('#close-task-editor'), cancelTaskEditor: $('#cancel-task-editor'), taskEditorEyebrow: $('#task-editor-eyebrow'), taskEditorHeading: $('#task-editor-heading'), saveTaskButton: $('#save-task-button'), durationHint: $('#duration-hint'), suggestionCard: $('#suggestion-card'), suggestionList: $('#suggestion-list'), publishAllSuggestions: $('#publish-all-suggestions'),
-  focusTitle: $('#focus-title'), focusState: $('#focus-state'), timer: $('#timer'), focusProgressBar: $('#focus-progress-bar'), focusNodeList: $('#focus-node-list'), pauseButton: $('#pause-button'), finishButton: $('#finish-button'), interruptButton: $('#interrupt-button'), pauseHint: $('#pause-hint'), leaveFocus: $('#leave-focus'), floatTimerButton: $('#float-timer-button'), miniFocusBar: $('#mini-focus-bar'), miniFocusTitle: $('#mini-focus-title'), miniFocusTime: $('#mini-focus-time'),
+  taskList: $('#task-list'), taskForm: $('#task-form'), title: $('#task-title'), duration: $('#task-duration'), formMessage: $('#form-message'), taskCount: $('#task-count'), dailyScore: $('#daily-score'), dailyNote: $('#daily-note'), todayButton: $('#today-button'), openCreateTask: $('#open-create-task'), closeTaskEditor: $('#close-task-editor'), cancelTaskEditor: $('#cancel-task-editor'), taskEditorEyebrow: $('#task-editor-eyebrow'), taskEditorHeading: $('#task-editor-heading'), saveTaskButton: $('#save-task-button'), durationHint: $('#duration-hint'), suggestionCard: $('#suggestion-card'), suggestionList: $('#suggestion-list'), shuffleSuggestions: $('#shuffle-suggestions'), publishAllSuggestions: $('#publish-all-suggestions'),
+  focusTitle: $('#focus-title'), focusState: $('#focus-state'), timer: $('#timer'), focusProgress: $('#focus-progress'), focusProgressBar: $('#focus-progress-bar'), focusNodeList: $('#focus-node-list'), pauseButton: $('#pause-button'), finishButton: $('#finish-button'), interruptButton: $('#interrupt-button'), pauseHint: $('#pause-hint'), leaveFocus: $('#leave-focus'), floatTimerButton: $('#float-timer-button'), miniFocusBar: $('#mini-focus-bar'), miniFocusTitle: $('#mini-focus-title'), miniFocusTime: $('#mini-focus-time'),
   monthCalendar: $('#month-calendar'), monthLabel: $('#month-label'), previousMonth: $('#previous-month'), nextMonth: $('#next-month'), dayDetail: $('#day-detail'), freeDayCount: $('#free-day-count'), freeDayDate: $('#free-day-date'), useFreeDay: $('#use-free-day'), summaryFocus: $('#summary-focus'), summaryPauses: $('#summary-pauses'), summaryProgress: $('#summary-progress'), abandonNote: $('#abandon-note'), dailyReport: $('#daily-report'), monthlyReport: $('#monthly-report'),
-  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'),
+  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), testNotification: $('#test-notification'), reminderDiagnostics: $('#reminder-diagnostics'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'),
   warningDialog: $('#warning-dialog'), warningTitle: $('#warning-title'), warningCopy: $('#warning-copy'), warningContinue: $('#warning-continue'), rewardDialog: $('#reward-dialog'), rewardTaskName: $('#reward-task-name'), rewardOptions: $('#reward-options'), shuffleRewards: $('#shuffle-rewards'), claimReward: $('#claim-reward'), penaltyDialog: $('#penalty-dialog'), penaltyTitle: $('#penalty-title'), penaltyTrigger: $('#penalty-trigger'), penaltyContent: $('#penalty-content'), penaltyLater: $('#penalty-later'), penaltyDone: $('#penalty-done'), appealDialog: $('#appeal-dialog'), appealForm: $('#appeal-form'), appealReason: $('#appeal-reason'), appealHonesty: $('#appeal-honesty'), appealClose: $('#appeal-close'), appealResult: $('#appeal-result'), interruptDialog: $('#interrupt-dialog'), interruptForm: $('#interrupt-form'), interruptReason: $('#interrupt-reason'), interruptClose: $('#interrupt-close'), confirmDialog: $('#confirm-dialog'), confirmTitle: $('#confirm-title'), confirmMessage: $('#confirm-message'), confirmCancel: $('#confirm-cancel'), confirmAccept: $('#confirm-accept'), ionicAlert: $('#ionic-alert'), celebration: $('#celebration'), todayNavBadge: $('#today-nav-badge'), toast: $('#toast'), nodeDialog: $('#node-dialog'), nodeDialogTitle: $('#node-dialog-title'), nodeForm: $('#node-form'), nodeList: $('#node-list'), nodeAllocation: $('#node-allocation'), addNodeButton: $('#add-node-button'), smartSplitButton: $('#smart-split-button'), abandonFocusButton: $('#abandon-focus-button')
 };
 
-let state = loadState();
+let state = freshState();
+let appInitialized = false;
+let currentSuggestions = pickSuggestionBatch(SUGGESTION_POOL);
 let editingNodesFor = null;
 let timerId = null;
+let reminderTimerId = null;
 let currentView = 'today';
 let selectedCalendarDate = dateKey();
 let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -61,11 +74,9 @@ let pipTimeElement = null;
 function dateKey(date = new Date()) { const offset = date.getTimezoneOffset() * 60000; return new Date(date - offset).toISOString().slice(0, 10); }
 function localDate(date = new Date()) { return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(date); }
 function uid() { return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`; }
-function freshState() { return { tasks: [], events: [], rewards: DEFAULT_REWARDS.map(content => ({ id: uid(), content })), punishments: DEFAULT_PUNISHMENTS.map(content => ({ id: uid(), content })), claimedRewards: [], penaltyRecords: [], freeDays: [], stageRewardsUnlocked: [], reminderDeliveries: [], monthlyReports: [], settings: { promptStyle: 'gentle', guiltCopy: false, reduceMotion: false, reminderTime: '10:00' } }; }
-function loadState() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!parsed || !Array.isArray(parsed.tasks)) return freshState();
+function freshState() { return { tasks: [], events: [], rewards: DEFAULT_REWARDS.map(content => ({ id: uid(), content })), punishments: DEFAULT_PUNISHMENTS.map(content => ({ id: uid(), content })), claimedRewards: [], penaltyRecords: [], freeDays: [], stageRewardsUnlocked: [], reminderDeliveries: [], reminderDiagnostics: { lastCheckedAt: null, lastResult: 'never', lastDeliveredAt: null, lastError: null, nextScheduledAt: null, backgroundMode: 'foreground_only', backgroundError: null }, monthlyReports: [], settings: { promptStyle: 'gentle', guiltCopy: false, reduceMotion: false, reminderTime: '10:00' } }; }
+function normalizeState(persisted) {
+    const parsed = persisted && Array.isArray(persisted.tasks) ? persisted : freshState();
     const defaults = freshState();
     parsed.events ||= [];
     parsed.rewards = Array.isArray(parsed.rewards) ? parsed.rewards : defaults.rewards;
@@ -75,6 +86,7 @@ function loadState() {
     parsed.freeDays ||= [];
     parsed.stageRewardsUnlocked ||= [];
     parsed.reminderDeliveries ||= [];
+    parsed.reminderDiagnostics = { ...defaults.reminderDiagnostics, ...(parsed.reminderDiagnostics || {}) };
     parsed.monthlyReports ||= [];
     parsed.settings = { ...defaults.settings, ...(parsed.settings || {}) };
     parsed.tasks.forEach(task => {
@@ -90,11 +102,10 @@ function loadState() {
       task.focusedSeconds ??= task.startedAt ? Math.max(0, task.plannedSeconds - task.remainingSeconds) : 0;
     });
     return parsed;
-  } catch { return freshState(); }
 }
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveState() { if (appInitialized) savePersistedState(state); }
 function todayTasks() { return state.tasks.filter(task => task.date === dateKey()); }
-function visibleTasks() { return todayTasks().filter(task => task.status !== 'abandoned'); }
+function visibleTasks() { return sortTasksForDisplay(todayTasks().filter(task => task.status !== 'abandoned')); }
 function activeTask() { return state.tasks.find(task => task.status === 'in_progress'); }
 function pausedTask() { return state.tasks.find(task => task.status === 'paused'); }
 function focusTask() { return activeTask() || pausedTask(); }
@@ -163,7 +174,7 @@ function renderTaskList(tasks) {
     const focusActions = ['in_progress','paused'].includes(task.status) ? '<button class="button primary" data-action="focus" type="button">查看专注</button><button class="text-button delete-button" data-action="abandon" type="button">主动放弃</button>' : '';
     const interruptedActions = task.status === 'interrupted' ? '<button class="button primary" data-action="start" type="button">继续专注</button><button class="text-button delete-button" data-action="abandon" type="button">主动放弃</button>' : '';
     const failedActions = task.status === 'failed' && !task.appealUsed ? '<button class="button primary" data-action="appeal" type="button">申请待补</button><button class="button quiet" data-action="waive-appeal" type="button">放弃申辩</button>' : '';
-    return `<article class="task-card ${task.status}" data-task-id="${task.id}"><div class="task-row"><div><h3 class="task-title">${escapeHtml(task.title)}</h3><p class="task-meta">预计 ${formatDuration(task.plannedMinutes)} · 剩余 ${formatTime(task.remainingSeconds)}</p></div><span class="status ${task.status}">${taskStatus(task)}</span></div><div class="task-progress"><span style="width:${progress}%"></span></div><div class="progress-row"><span>${task.nodes.length ? `${task.nodes.filter(node => node.done).length}/${task.nodes.length} 节点` : '手动进度'}</span><strong>${progress}%</strong></div>${task.nodes.length ? `<div class="node-preview">${nodes}${task.nodes.length > 4 ? `<span class="node-pill">+${task.nodes.length - 4}</span>` : ''}</div>` : ''}<div class="task-actions">${plannedActions}${focusActions}${interruptedActions}${failedActions}</div></article>`;
+    return `<article class="task-card ${task.status}" data-task-id="${task.id}"><div class="task-row"><div><h3 class="task-title">${escapeHtml(task.title)}</h3><p class="task-meta">预计 ${formatDuration(task.plannedMinutes)} · 剩余 ${formatTime(task.remainingSeconds)}</p></div><span class="status ${task.status}">${taskStatus(task)}</span></div><div class="task-progress"><span style="width:${progress}%"></span></div><div class="progress-row"><span>${task.nodes.length ? `${task.nodes.filter(node => node.done).length}/${task.nodes.length} 节点` : '进度'}</span><strong>${progress}%</strong></div>${task.nodes.length ? `<div class="node-preview">${nodes}${task.nodes.length > 4 ? `<span class="node-pill">+${task.nodes.length - 4}</span>` : ''}</div>` : ''}<div class="task-actions">${plannedActions}${focusActions}${interruptedActions}${failedActions}</div></article>`;
   }).join('');
 }
 
@@ -171,7 +182,7 @@ function renderSuggestions(tasks) {
   const show = tasks.length === 0 && !isFreeDay(dateKey());
   els.suggestionCard.hidden = !show;
   if (!show) return;
-  els.suggestionList.innerHTML = DEFAULT_SUGGESTIONS.map((item, index) => `<article><div><span>建议 ${index + 1}</span><h3>${escapeHtml(item.title)}</h3><p>${item.minutes} 分钟</p></div><button class="button quiet" type="button" data-publish-suggestion="${index}">发布</button></article>`).join('');
+  els.suggestionList.innerHTML = currentSuggestions.map((item, index) => `<article><div><span>建议 ${index + 1}</span><h3>${escapeHtml(item.title)}</h3><p>${item.minutes} 分钟</p></div><button class="button quiet" type="button" data-publish-suggestion="${index}">发布</button></article>`).join('');
 }
 
 function renderFocus() {
@@ -184,15 +195,16 @@ function renderFocus() {
   els.miniFocusTime.textContent = formatTime(task.remainingSeconds);
   if (pipTimeElement) pipTimeElement.textContent = formatTime(task.remainingSeconds);
   const progress = taskProgress(task);
+  els.focusProgress.hidden = !task.nodes.length;
   els.focusProgressBar.style.width = `${progress}%`;
-  els.focusState.textContent = task.status === 'paused' ? '普通暂停中' : `已完成 ${progress}%`;
+  els.focusState.textContent = task.status === 'paused' ? '普通暂停中' : task.nodes.length ? `已完成 ${progress}%` : '保持专注';
   const pauseRemaining = Math.max(0, PAUSE_LIMIT_SECONDS - effectivePauseSeconds(task));
   els.pauseHint.textContent = `普通暂停剩余 ${Math.max(0, PAUSE_LIMIT_COUNT - task.pauseCount)} 次 · ${formatTime(pauseRemaining)}`;
   els.pauseButton.textContent = task.status === 'paused' ? '继续专注' : '普通暂停';
   els.pauseButton.disabled = task.status !== 'paused' && (task.pauseCount >= PAUSE_LIMIT_COUNT || pauseRemaining === 0);
-  els.focusNodeList.innerHTML = task.nodes.length ? task.nodes.map(node => `<label class="focus-node ${node.done ? 'done' : ''}"><input type="checkbox" data-focus-node="${node.id}" ${node.done ? 'checked' : ''}><span><strong>${escapeHtml(node.title)}</strong><small>${node.minutes} 分钟</small></span></label>`).join('') : `<label class="manual-progress"><span><strong>手动进度</strong><output>${progress}%</output></span><input type="range" min="0" max="100" step="5" value="${progress}" data-manual-progress></label>`;
+  els.focusNodeList.innerHTML = task.nodes.length ? task.nodes.map(node => `<label class="focus-node ${node.done ? 'done' : ''}"><input type="checkbox" data-focus-node="${node.id}" ${node.done ? 'checked' : ''}><span><strong>${escapeHtml(node.title)}</strong><small>${node.minutes} 分钟</small></span></label>`).join('') : '';
   els.finishButton.disabled = Boolean(task.nodes.length && progress < 100);
-  els.finishButton.textContent = task.nodes.length ? '完成任务' : progress >= 100 ? '确认完成' : '直接完成';
+  els.finishButton.textContent = task.nodes.length ? '完成任务' : '直接完成';
 }
 
 function calendarState(day) {
@@ -248,7 +260,7 @@ function renderReports() {
   const archived = now.getDate() === 1 ? state.monthlyReports.at(-1) : null;
   const report = archived || buildMonthReport(now.getFullYear(), now.getMonth(), now.getDate());
   const prefix = archived ? '月总结' : '本月进度';
-  els.monthlyReport.innerHTML = `<p class="eyebrow">${report.year} 年 ${report.month + 1} 月${prefix}</p><h2>完成率 ${report.rate}%</h2><div class="month-stats"><div><strong>${report.counts.green}</strong><span>绿钩</span></div><div><strong>${report.counts.yellow}</strong><span>黄线</span></div><div><strong>${report.counts.red}</strong><span>红叉</span></div><div><strong>${report.counts.free}</strong><span>自由日</span></div></div><p>累计专注 ${report.focusMinutes} 分钟；异常记录 ${report.anomalies} 条。${report.suggestion}</p>`;
+  els.monthlyReport.innerHTML = `<p class="eyebrow">${report.year} 年 ${report.month + 1} 月${prefix}</p><h2>完成率 ${report.rate}%</h2><div class="month-stats"><div><strong>${report.counts.green}</strong><span>全部完成</span></div><div><strong>${report.counts.yellow}</strong><span>部分完成</span></div><div><strong>${report.counts.red}</strong><span>未完成</span></div><div><strong>${report.counts.free}</strong><span>自由日</span></div></div><p>累计专注 ${report.focusMinutes} 分钟；异常记录 ${report.anomalies} 条。${report.suggestion}</p>`;
 }
 
 function renderPreferences() {
@@ -261,10 +273,19 @@ function renderPreferences() {
     els.notificationPermission.disabled = true;
   } else {
     const labels = { granted: '通知已授权', denied: '通知已被浏览器拒绝', default: '尚未授权通知' };
-    els.notificationStatus.textContent = `${labels[Notification.permission]}；完全退出浏览器后提醒可能受设备限制。`;
+    els.notificationStatus.textContent = `${labels[Notification.permission]}；${Notification.permission === 'granted' ? '前台精确提醒已启用' : '授权后才能发送提醒'}。`;
     els.notificationPermission.disabled = Notification.permission === 'granted';
     els.notificationPermission.textContent = Notification.permission === 'granted' ? '已授权' : '授权通知';
+    els.testNotification.disabled = Notification.permission !== 'granted';
   }
+  const diagnosticLabels = { never: '尚未执行提醒检查', waiting: '等待设定时间', skipped_tasks: '今天已有任务，已跳过计划提醒', skipped_free_day: '今天是自由日，已跳过计划提醒', already_delivered: '今天的提醒已发送', unsupported: '当前浏览器不支持系统通知', permission_denied: '通知权限未开启', service_worker_unavailable: '通知服务尚未就绪', delivered: '计划提醒发送成功', test_delivered: '测试通知发送成功', failed: '通知发送失败' };
+  const diagnostic = state.reminderDiagnostics;
+  const mode = diagnostic.backgroundMode === 'periodic_sync' ? '前台精确提醒 + PWA 后台补偿' : '前台精确提醒';
+  const result = diagnosticLabels[diagnostic.lastResult] || diagnostic.lastResult;
+  const checked = diagnostic.lastCheckedAt ? `；最近检查 ${new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(diagnostic.lastCheckedAt))}` : '';
+  const next = diagnostic.nextScheduledAt ? `；下次前台检查 ${new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(diagnostic.nextScheduledAt))}` : '';
+  const error = diagnostic.lastError ? `；失败原因：${diagnostic.lastError}` : diagnostic.backgroundError ? `；后台补偿未启用：${diagnostic.backgroundError}` : '';
+  els.reminderDiagnostics.textContent = `${mode} · ${result}${checked}${next}${error}`;
   document.documentElement.classList.toggle('reduce-motion', state.settings.reduceMotion);
 }
 function renderPools() {
@@ -290,8 +311,8 @@ function resumeTask(task) { if (task.status !== 'paused') return; const used = e
 async function completeTask(task, madeUp = false) {
   if (!task || task.status === 'completed') return;
   if (task.nodes.length && taskProgress(task) < 100) { toast('请先完成全部节点。'); return; }
-  if (!task.nodes.length && taskProgress(task) < 100 && !madeUp) {
-    const approved = await showConfirm('确认直接完成？', '当前手动进度尚未达到 100%，确认后将按实际专注时长完成任务。', '确认完成');
+  if (!task.nodes.length && !madeUp) {
+    const approved = await showConfirm('确认直接完成？', '该任务未拆分节点，确认后将按实际专注时长记录为完成。', '确认完成');
     if (!approved) return;
   }
   if (task.status === 'in_progress') updateRunningTask(task);
@@ -317,9 +338,9 @@ async function abandonTask(task) {
   if (currentView === 'focus') switchView('today');
   toast('已记录为主动放弃，可在日总结中复盘。');
 }
-function updateRunningTask(task) { if (task.status !== 'in_progress') return; const now = Date.now(); const delta = Math.max(0, Math.floor((now - (task.lastTickAt || now)) / 1000)); const consumed = Math.min(task.remainingSeconds, delta); task.remainingSeconds = Math.max(0, task.remainingSeconds - delta); task.focusedSeconds = (task.focusedSeconds || 0) + consumed; task.lastTickAt = now; maybeWarn(task); if (task.remainingSeconds === 0) { task.status = 'failed'; task.failedAt = new Date().toISOString(); task.lastTickAt = null; addEvent('timed_out', task); closeTimerFloat(); if (currentView === 'focus') switchView('today'); toast(`“${task.title}”倒计时结束。你有一次申辩机会。`); } }
+function updateRunningTask(task) { if (task.status !== 'in_progress') return; const advanced = advanceRunningTimer(task, Date.now()); task.remainingSeconds = advanced.remainingSeconds; task.focusedSeconds = advanced.focusedSeconds; task.lastTickAt = advanced.lastTickAt; maybeWarn(task); if (task.remainingSeconds === 0) { task.status = 'failed'; task.failedAt = new Date().toISOString(); task.lastTickAt = null; addEvent('timed_out', task); closeTimerFloat(); if (currentView === 'focus') switchView('today'); toast(`“${task.title}”倒计时结束。你有一次申辩机会。`); } }
 function updatePausedTask(task) { if (task.status !== 'paused') return; const base = task.pauseUsedSeconds || 0; const elapsed = Math.max(0, Math.floor((Date.now() - (task.pausedAt || Date.now())) / 1000)); if (base + elapsed >= PAUSE_LIMIT_SECONDS) { const resumeAt = (task.pausedAt || Date.now()) + Math.max(0, PAUSE_LIMIT_SECONDS - base) * 1000; task.pauseUsedSeconds = PAUSE_LIMIT_SECONDS; task.status = 'in_progress'; task.lastTickAt = resumeAt; addEvent('pause_limit_reached', task); updateRunningTask(task); toast('45 分钟普通暂停已用完，已自动恢复专注。'); } }
-function tick() { state.tasks.forEach(task => { if (task.status === 'paused') updatePausedTask(task); else updateRunningTask(task); }); saveState(); render(); if (!focusTask()) stopTicker(); }
+function tick() { if (!appInitialized) return; state.tasks.forEach(task => { if (task.status === 'paused') updatePausedTask(task); else updateRunningTask(task); }); saveState(); render(); if (!focusTask()) stopTicker(); }
 function startTicker() { if (!timerId) timerId = setInterval(tick, 1000); }
 function stopTicker() { clearInterval(timerId); timerId = null; }
 
@@ -371,12 +392,77 @@ function checkStageRewards() {
   if (unlocked.length) { saveState(); setTimeout(() => toast(`阶段奖励解锁：${unlocked.at(-1).reward}`), 1900); }
 }
 
-async function checkReminderDelivery() {
+function recordReminderDiagnostic(result, error = null) {
+  state.reminderDiagnostics.lastCheckedAt = new Date().toISOString();
+  state.reminderDiagnostics.lastResult = result;
+  state.reminderDiagnostics.lastError = error ? String(error).slice(0, 160) : null;
+  saveState();
+  renderPreferences();
+}
+async function showPlanNotification(title, body, tag) {
+  if (!('serviceWorker' in navigator)) throw new Error('Service Worker 不可用');
+  const registration = await navigator.serviceWorker.ready;
+  await registration.showNotification(title, { body, icon: './icon.svg', tag, data: { view: 'today' } });
+}
+async function checkReminderDelivery(source = 'foreground') {
   const today = dateKey();
-  if (todayTasks().length || isFreeDay(today) || state.reminderDeliveries.some(item => item.date === today)) return;
+  if (todayTasks().length) { recordReminderDiagnostic('skipped_tasks'); return false; }
+  if (isFreeDay(today)) { recordReminderDiagnostic('skipped_free_day'); return false; }
+  if (state.reminderDeliveries.some(item => item.date === today)) { recordReminderDiagnostic('already_delivered'); return false; }
   const now = new Date(); const [hour, minute] = state.settings.reminderTime.split(':').map(Number); const reminderAt = new Date(now); reminderAt.setHours(hour, minute, 0, 0);
-  if (now < reminderAt || !('Notification' in window) || Notification.permission !== 'granted' || !('serviceWorker' in navigator)) return;
-  try { const registration = await navigator.serviceWorker.ready; await registration.showNotification('该安排今天的任务了', { body: '打开“今日兑现”，为今天发布最重要的学习任务。', icon: './icon.svg', tag: `plan-${today}`, data: { view: 'today' } }); state.reminderDeliveries.push({ date: today, deliveredAt: new Date().toISOString() }); saveState(); } catch { /* 技术失败不记录送达，也不触发惩罚 */ }
+  if (now < reminderAt) { recordReminderDiagnostic('waiting'); return false; }
+  if (!('Notification' in window)) { recordReminderDiagnostic('unsupported'); return false; }
+  if (Notification.permission !== 'granted') { recordReminderDiagnostic('permission_denied'); return false; }
+  if (!('serviceWorker' in navigator)) { recordReminderDiagnostic('service_worker_unavailable'); return false; }
+  try {
+    await showPlanNotification('该安排今天的任务了', '打开“今日兑现”，为今天发布最重要的学习任务。', `plan-${today}`);
+    const deliveredAt = new Date().toISOString();
+    state.reminderDeliveries.push({ date: today, deliveredAt, source });
+    state.reminderDiagnostics.lastDeliveredAt = deliveredAt;
+    recordReminderDiagnostic('delivered');
+    return true;
+  } catch (error) {
+    recordReminderDiagnostic('failed', error?.message || error);
+    return false;
+  }
+}
+function scheduleReminderCheck() {
+  clearTimeout(reminderTimerId);
+  if (!appInitialized) return;
+  const next = nextReminderTime(new Date(), state.settings.reminderTime);
+  state.reminderDiagnostics.nextScheduledAt = next.toISOString();
+  saveState();
+  renderPreferences();
+  reminderTimerId = setTimeout(async () => {
+    await checkReminderDelivery('scheduled');
+    scheduleReminderCheck();
+  }, Math.max(0, next.getTime() - Date.now()));
+}
+async function testNotificationDelivery() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') { recordReminderDiagnostic('permission_denied'); toast('请先授权通知。'); return; }
+  try {
+    await showPlanNotification('今日兑现 · 测试通知', '如果你看到这条消息，浏览器与系统通知链路正常。', `test-${Date.now()}`);
+    recordReminderDiagnostic('test_delivered');
+    toast('测试通知已发送，请检查系统通知栏。');
+  } catch (error) {
+    recordReminderDiagnostic('failed', error?.message || error);
+    toast('测试通知发送失败，原因已记录在设置页。');
+  }
+}
+async function configureBackgroundReminder() {
+  state.reminderDiagnostics.backgroundMode = 'foreground_only';
+  state.reminderDiagnostics.backgroundError = null;
+  try {
+    const registration = await navigator.serviceWorker?.ready;
+    if (!registration?.periodicSync) throw new Error('当前浏览器或安装方式不支持');
+    const tags = await registration.periodicSync.getTags();
+    if (!tags.includes('plan-reminder-fallback')) await registration.periodicSync.register('plan-reminder-fallback', { minInterval: 12 * 60 * 60 * 1000 });
+    state.reminderDiagnostics.backgroundMode = 'periodic_sync';
+  } catch (error) {
+    state.reminderDiagnostics.backgroundError = error?.message || String(error);
+  }
+  saveState();
+  renderPreferences();
 }
 async function requestNotificationAccess() {
   if (!('Notification' in window)) { renderPreferences(); return; }
@@ -384,7 +470,7 @@ async function requestNotificationAccess() {
     const permission = await Notification.requestPermission();
     renderPreferences();
     toast(permission === 'granted' ? '通知已授权，将按设置时间尝试提醒。' : '未获得通知权限，可稍后在浏览器设置中调整。');
-    if (permission === 'granted') checkReminderDelivery();
+    if (permission === 'granted') { await checkReminderDelivery('permission_granted'); scheduleReminderCheck(); configureBackgroundReminder(); }
   } catch {
     toast('浏览器未能完成通知授权。');
   }
@@ -402,8 +488,9 @@ function openTaskEditor(task = null) { if (task && task.status !== 'planned') { 
 function closeTaskEditor() { editingTaskId = null; els.taskForm.reset(); els.formMessage.textContent = ''; switchView('today'); }
 function changeDurationUnit(unit) { if (unit === durationUnit) return; const currentMinutes = durationToMinutes(els.duration.value, durationUnit); durationUnit = unit; document.querySelectorAll('[data-duration-unit]').forEach(button => { const active = button.dataset.durationUnit === unit; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); els.duration.min = unit === 'hours' ? '0.02' : '1'; els.duration.max = unit === 'hours' ? '24' : '1440'; els.duration.step = unit === 'hours' ? '0.01' : '1'; els.duration.placeholder = unit === 'hours' ? '例如：1.5' : '例如：45'; if (currentMinutes) els.duration.value = unit === 'hours' ? Number((currentMinutes / 60).toFixed(2)) : currentMinutes; }
 async function saveTaskFromForm() { const title = els.title.value.trim(); const minutes = durationToMinutes(els.duration.value, durationUnit); const task = state.tasks.find(item => item.id === editingTaskId); els.formMessage.textContent = ''; if (!title) { els.formMessage.textContent = '请写下要学习的内容。'; return; } if (!Number.isInteger(minutes) || minutes < 1) { els.formMessage.textContent = '预计时长最短为 1 分钟。'; return; } if (!isTimeAllowed(minutes, task?.id)) { els.formMessage.textContent = `今天最多还可安排 ${availableTodayMinutes(task?.id)} 分钟，请缩短时长。`; return; } if (!task) { createTask(title, minutes); closeTaskEditor(); return; } if (task.nodes.length && task.nodes.reduce((sum, node) => sum + node.minutes, 0) !== minutes) { const approved = await showConfirm('节点时长需要重新分配', '修改总时长后，现有节点时长将不再匹配。确认后会清空节点，请重新拆分。', '继续修改'); if (!approved) return; task.nodes = []; task.manualProgress = 0; } task.title = title; task.plannedMinutes = minutes; task.plannedSeconds = minutes * 60; task.remainingSeconds = minutes * 60; task.warned = false; addEvent('edited', task); saveState(); render(); closeTaskEditor(); toast('任务已更新。'); }
-function publishSuggestion(index) { const item = DEFAULT_SUGGESTIONS[index]; if (!item) return; if (!isTimeAllowed(item.minutes)) { toast(`今天最多还可安排 ${availableTodayMinutes()} 分钟，无法发布这条建议。`); return; } createTask(item.title, item.minutes); }
-function publishAllSuggestions() { const total = DEFAULT_SUGGESTIONS.reduce((sum, item) => sum + item.minutes, 0); if (!isTimeAllowed(total)) { toast(`三条建议共 ${total} 分钟，今天最多还可安排 ${availableTodayMinutes()} 分钟。`); return; } DEFAULT_SUGGESTIONS.forEach(item => createTask(item.title, item.minutes, true)); toast('3 个建议任务已全部发布。'); }
+function shuffleSuggestionBatch() { currentSuggestions = pickSuggestionBatch(SUGGESTION_POOL, currentSuggestions); renderSuggestions(visibleTasks()); toast('已换一批建议任务。'); }
+function publishSuggestion(index) { const item = currentSuggestions[index]; if (!item) return; if (!isTimeAllowed(item.minutes)) { toast(`今天最多还可安排 ${availableTodayMinutes()} 分钟，无法发布这条建议。`); return; } createTask(item.title, item.minutes); }
+function publishAllSuggestions() { const total = currentSuggestions.reduce((sum, item) => sum + item.minutes, 0); if (!isTimeAllowed(total)) { toast(`三条建议共 ${total} 分钟，今天最多还可安排 ${availableTodayMinutes()} 分钟。`); return; } currentSuggestions.forEach(item => createTask(item.title, item.minutes, true)); toast('3 个建议任务已全部发布。'); }
 function showFallbackConfirm(title, message, acceptLabel) { els.confirmTitle.textContent = title; els.confirmMessage.textContent = message; els.confirmAccept.textContent = acceptLabel; els.confirmDialog.showModal(); return new Promise(resolve => { confirmResolver = resolve; }); }
 async function showConfirm(title, message, acceptLabel = '确认') { try { await Promise.race([customElements.whenDefined('ion-alert'), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 800))]); if (typeof els.ionicAlert.present !== 'function') throw new Error('unavailable'); els.ionicAlert.header = title; els.ionicAlert.message = message; els.ionicAlert.buttons = [{ text: '取消', role: 'cancel' }, { text: acceptLabel, role: 'confirm' }]; await els.ionicAlert.present(); const result = await els.ionicAlert.onDidDismiss(); return result.role === 'confirm'; } catch { return showFallbackConfirm(title, message, acceptLabel); } }
 async function openTimerFloat() { const task = focusTask(); if (!task) return; if ('documentPictureInPicture' in window) { try { pipWindow = await window.documentPictureInPicture.requestWindow({ width: 180, height: 90 }); pipWindow.document.body.innerHTML = ''; const style = pipWindow.document.createElement('style'); style.textContent = 'body{margin:0;display:grid;place-items:center;height:100vh;background:#163d34;color:#fff;font:800 38px/1 ui-rounded,system-ui;font-variant-numeric:tabular-nums;letter-spacing:-.06em}'; pipWindow.document.head.append(style); pipTimeElement = pipWindow.document.createElement('time'); pipTimeElement.textContent = formatTime(task.remainingSeconds); pipWindow.document.body.append(pipTimeElement); pipWindow.addEventListener('pagehide', () => { pipWindow = null; pipTimeElement = null; }); toast('倒计时浮窗已开启。'); return; } catch { /* 用户取消或浏览器拒绝时继续尝试通知 */ } } await showTimerNotification(task); }
@@ -417,6 +504,7 @@ els.closeTaskEditor.addEventListener('click', closeTaskEditor);
 els.cancelTaskEditor.addEventListener('click', closeTaskEditor);
 document.querySelectorAll('[data-duration-unit]').forEach(button => button.addEventListener('click', () => changeDurationUnit(button.dataset.durationUnit)));
 els.suggestionList.addEventListener('click', event => { const button = event.target.closest('[data-publish-suggestion]'); if (button) publishSuggestion(Number(button.dataset.publishSuggestion)); });
+els.shuffleSuggestions.addEventListener('click', shuffleSuggestionBatch);
 els.publishAllSuggestions.addEventListener('click', publishAllSuggestions);
 els.taskList.addEventListener('click', event => { const button = event.target.closest('button[data-action]'); if (!button) return; if (button.dataset.action === 'create') { openTaskEditor(); return; } const card = button.closest('[data-task-id]'); const task = state.tasks.find(item => item.id === card?.dataset.taskId); if (!task) return; const action = button.dataset.action; if (action === 'start') startTask(task); if (action === 'focus') switchView('focus'); if (action === 'complete') completeTask(task); if (action === 'nodes') openNodes(task); if (action === 'appeal') openAppeal(task); if (action === 'waive-appeal') waiveAppeal(task); if (action === 'edit') openTaskEditor(task); if (action === 'delete') deleteTask(task); if (action === 'abandon') abandonTask(task); });
 els.pauseButton.addEventListener('click', () => { const task = focusTask(); if (!task) return; task.status === 'paused' ? resumeTask(task) : pauseTask(task); });
@@ -425,7 +513,7 @@ els.abandonFocusButton.addEventListener('click', () => abandonTask(focusTask()))
 els.interruptButton.addEventListener('click', () => { const task = focusTask(); if (!task) return; if (task.status === 'paused') resumeTask(task); els.interruptForm.reset(); els.interruptDialog.showModal(); });
 els.interruptClose.addEventListener('click', () => els.interruptDialog.close());
 els.interruptForm.addEventListener('submit', event => { event.preventDefault(); const reason = els.interruptReason.value.trim(); if (!reason) return; interruptTask(activeTask(), reason); els.interruptDialog.close(); });
-els.focusNodeList.addEventListener('change', event => { const task = focusTask(); if (!task) return; const nodeInput = event.target.closest('[data-focus-node]'); if (nodeInput) { const node = task.nodes.find(item => item.id === nodeInput.dataset.focusNode); if (!node) return; const wasDone = node.done; node.done = nodeInput.checked; addEvent('node_toggled', task, { nodeId: node.id, done: node.done }); saveState(); render(); if (!wasDone && node.done) toast(randomItem(NODE_ENCOURAGEMENT)); return; } const range = event.target.closest('[data-manual-progress]'); if (range) { task.manualProgress = Number(range.value); addEvent('progress_updated', task, { progress: task.manualProgress }); saveState(); render(); if (task.manualProgress === 100) toast('进度已到 100%，可以确认完成。'); } });
+els.focusNodeList.addEventListener('change', event => { const task = focusTask(); if (!task) return; const nodeInput = event.target.closest('[data-focus-node]'); if (!nodeInput) return; const node = task.nodes.find(item => item.id === nodeInput.dataset.focusNode); if (!node) return; const wasDone = node.done; node.done = nodeInput.checked; addEvent('node_toggled', task, { nodeId: node.id, done: node.done }); saveState(); render(); if (!wasDone && node.done) toast(randomItem(NODE_ENCOURAGEMENT)); });
 els.miniFocusBar.addEventListener('click', () => switchView('focus'));
 els.leaveFocus.addEventListener('click', () => switchView('today'));
 els.floatTimerButton.addEventListener('click', openTimerFloat);
@@ -453,8 +541,9 @@ els.useFreeDay.addEventListener('click', () => {
 els.promptStyle.addEventListener('change', () => { state.settings.promptStyle = els.promptStyle.value; saveState(); });
 els.guiltCopy.addEventListener('change', () => { state.settings.guiltCopy = els.guiltCopy.checked; saveState(); });
 els.reduceMotion.addEventListener('change', () => { state.settings.reduceMotion = els.reduceMotion.checked; saveState(); renderPreferences(); });
-els.reminderTime.addEventListener('change', () => { state.settings.reminderTime = els.reminderTime.value || '10:00'; saveState(); toast(`每日提醒时间已设为 ${state.settings.reminderTime}。`); });
+els.reminderTime.addEventListener('change', () => { state.settings.reminderTime = els.reminderTime.value || '10:00'; saveState(); checkReminderDelivery('setting_changed'); scheduleReminderCheck(); toast(`每日提醒时间已设为 ${state.settings.reminderTime}。`); });
 els.notificationPermission.addEventListener('click', requestNotificationAccess);
+els.testNotification.addEventListener('click', testNotificationDelivery);
 els.rewardForm.addEventListener('submit', event => { event.preventDefault(); const content = els.rewardInput.value.trim(); if (!content) return; state.rewards.push({ id: uid(), content }); els.rewardForm.reset(); saveState(); renderPools(); });
 els.punishmentForm.addEventListener('submit', event => { event.preventDefault(); const content = els.punishmentInput.value.trim(); if (!content) return; state.punishments.push({ id: uid(), content }); els.punishmentForm.reset(); saveState(); renderPools(); });
 els.rewardList.addEventListener('click', event => { const button = event.target.closest('[data-remove-reward]'); if (!button) return; state.rewards = state.rewards.filter(item => item.id !== button.dataset.removeReward); saveState(); renderPools(); });
@@ -487,14 +576,31 @@ if ('serviceWorker' in navigator) {
   });
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data?.type === 'OPEN_VIEW') switchView(event.data.view || 'today');
+    if (event.data?.type === 'CHECK_REMINDER') checkReminderDelivery('periodic_sync_client');
   });
   navigator.serviceWorker.register('./sw.js').then(registration => registration.update()).catch(() => {});
 }
-rolloverInterruptedTasks();
-ensurePreviousMonthReport();
-state.tasks.forEach(task => { if (task.status === 'paused') updatePausedTask(task); else updateRunningTask(task); });
-saveState(); render(); switchView(currentView); if (focusTask()) startTicker();
-document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
-window.addEventListener('pageshow', tick);
-setTimeout(() => { checkReminderDelivery(); checkNoPlanPenalty(); }, 600);
-setInterval(() => { rolloverInterruptedTasks(); ensurePreviousMonthReport(); checkReminderDelivery(); checkNoPlanPenalty(); saveState(); render(); }, 60000);
+async function initializeApp() {
+  document.body.classList.add('app-loading');
+  const restored = await loadPersistedState();
+  state = normalizeState(restored.state);
+  appInitialized = true;
+  rolloverInterruptedTasks();
+  ensurePreviousMonthReport();
+  state.tasks.forEach(task => { if (task.status === 'paused') updatePausedTask(task); else updateRunningTask(task); });
+  saveState();
+  render();
+  switchView(currentView);
+  document.body.classList.remove('app-loading');
+  if (focusTask()) startTicker();
+  if (restored.recovered) setTimeout(() => toast('已从本地安全备份恢复全部数据。'), 150);
+  requestPersistentStorage();
+  scheduleReminderCheck();
+  configureBackgroundReminder();
+}
+initializeApp();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); checkReminderDelivery('visibility_resume'); scheduleReminderCheck(); } });
+window.addEventListener('pageshow', () => { tick(); checkReminderDelivery('pageshow'); scheduleReminderCheck(); });
+window.addEventListener('pagehide', () => { saveState(); flushPersistedState(); });
+setTimeout(() => { if (appInitialized) { checkReminderDelivery('startup'); checkNoPlanPenalty(); } }, 600);
+setInterval(() => { if (!appInitialized) return; rolloverInterruptedTasks(); ensurePreviousMonthReport(); checkNoPlanPenalty(); saveState(); render(); }, 60000);
