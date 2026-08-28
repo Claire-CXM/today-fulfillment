@@ -17,9 +17,9 @@ import {
   sortTasksForDisplay,
   taskProgress,
   warningMinutes
-} from './logic.js?v=28';
-import { flushPersistedState, loadPersistedState, requestPersistentStorage, savePersistedState } from './storage.js?v=28';
-import { configureAnalytics, durationBucket, shouldTrackDailyFulfillment, trackAnalyticsEvent } from './analytics.js?v=28';
+} from './logic.js?v=29';
+import { createPortableBackup, flushPersistedState, loadPersistedState, parsePortableBackup, requestPersistentStorage, savePersistedState } from './storage.js?v=29';
+import { configureAnalytics, durationBucket, shouldTrackDailyFulfillment, trackAnalyticsEvent } from './analytics.js?v=29';
 
 defineCustomElements(window);
 
@@ -46,11 +46,11 @@ const NODE_ENCOURAGEMENT = ['这一格完成得很扎实。', '节点已拿下�
 
 const $ = selector => document.querySelector(selector);
 const els = {
-  taskList: $('#task-list'), taskForm: $('#task-form'), title: $('#task-title'), duration: $('#task-duration'), formMessage: $('#form-message'), taskCount: $('#task-count'), dailyScore: $('#daily-score'), dailyJourney: $('#daily-journey'), dailyPathFill: $('#daily-path-fill'), dailyPathCaption: $('#daily-path-caption'), dailyNote: $('#daily-note'), todayButton: $('#today-button'), openCreateTask: $('#open-create-task'), closeTaskEditor: $('#close-task-editor'), cancelTaskEditor: $('#cancel-task-editor'), taskEditorEyebrow: $('#task-editor-eyebrow'), taskEditorHeading: $('#task-editor-heading'), saveTaskButton: $('#save-task-button'), durationHint: $('#duration-hint'), suggestionCard: $('#suggestion-card'), suggestionList: $('#suggestion-list'), shuffleSuggestions: $('#shuffle-suggestions'), publishAllSuggestions: $('#publish-all-suggestions'), todayStageCard: $('#today-stage-card'),
+  taskList: $('#task-list'), taskForm: $('#task-form'), title: $('#task-title'), duration: $('#task-duration'), formMessage: $('#form-message'), taskCount: $('#task-count'), dailyScore: $('#daily-score'), dailyGoalStatus: $('#daily-goal-status'), dailyJourney: $('#daily-journey'), dailyPathFill: $('#daily-path-fill'), dailyPathCaption: $('#daily-path-caption'), dailyNote: $('#daily-note'), todayButton: $('#today-button'), openCreateTask: $('#open-create-task'), closeTaskEditor: $('#close-task-editor'), cancelTaskEditor: $('#cancel-task-editor'), taskEditorEyebrow: $('#task-editor-eyebrow'), taskEditorHeading: $('#task-editor-heading'), saveTaskButton: $('#save-task-button'), saveStartTaskButton: $('#save-start-task-button'), durationHint: $('#duration-hint'), suggestionCard: $('#suggestion-card'), suggestionList: $('#suggestion-list'), shuffleSuggestions: $('#shuffle-suggestions'), publishAllSuggestions: $('#publish-all-suggestions'), todayStageCard: $('#today-stage-card'),
   focusTitle: $('#focus-title'), focusState: $('#focus-state'), timer: $('#timer'), focusProgress: $('#focus-progress'), focusProgressBar: $('#focus-progress-bar'), focusNodeList: $('#focus-node-list'), pauseButton: $('#pause-button'), finishButton: $('#finish-button'), interruptButton: $('#interrupt-button'), pauseHint: $('#pause-hint'), leaveFocus: $('#leave-focus'), floatTimerButton: $('#float-timer-button'), miniFocusBar: $('#mini-focus-bar'), miniFocusTitle: $('#mini-focus-title'), miniFocusTime: $('#mini-focus-time'),
   monthCalendar: $('#month-calendar'), monthLabel: $('#month-label'), previousMonth: $('#previous-month'), nextMonth: $('#next-month'), dayDetail: $('#day-detail'), freeDayCount: $('#free-day-count'), freeDayDate: $('#free-day-date'), useFreeDay: $('#use-free-day'), summaryFocus: $('#summary-focus'), summaryPauses: $('#summary-pauses'), summaryProgress: $('#summary-progress'), abandonNote: $('#abandon-note'), dailyReport: $('#daily-report'), monthlyReport: $('#monthly-report'),
-  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), usageAnalytics: $('#usage-analytics'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), testNotification: $('#test-notification'), reminderDiagnostics: $('#reminder-diagnostics'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'),
-  warningDialog: $('#warning-dialog'), warningTitle: $('#warning-title'), warningCopy: $('#warning-copy'), warningContinue: $('#warning-continue'), rewardDialog: $('#reward-dialog'), rewardTaskName: $('#reward-task-name'), rewardOptions: $('#reward-options'), shuffleRewards: $('#shuffle-rewards'), claimReward: $('#claim-reward'), penaltyDialog: $('#penalty-dialog'), penaltyTitle: $('#penalty-title'), penaltyTrigger: $('#penalty-trigger'), penaltyContent: $('#penalty-content'), penaltyLater: $('#penalty-later'), penaltyDone: $('#penalty-done'), appealDialog: $('#appeal-dialog'), appealForm: $('#appeal-form'), appealReason: $('#appeal-reason'), appealHonesty: $('#appeal-honesty'), appealClose: $('#appeal-close'), appealResult: $('#appeal-result'), interruptDialog: $('#interrupt-dialog'), interruptForm: $('#interrupt-form'), interruptReason: $('#interrupt-reason'), interruptClose: $('#interrupt-close'), confirmDialog: $('#confirm-dialog'), confirmTitle: $('#confirm-title'), confirmMessage: $('#confirm-message'), confirmCancel: $('#confirm-cancel'), confirmAccept: $('#confirm-accept'), ionicAlert: $('#ionic-alert'), celebration: $('#celebration'), todayNavBadge: $('#today-nav-badge'), toast: $('#toast'), nodeDialog: $('#node-dialog'), nodeDialogTitle: $('#node-dialog-title'), nodeForm: $('#node-form'), nodeList: $('#node-list'), nodeAllocation: $('#node-allocation'), addNodeButton: $('#add-node-button'), smartSplitButton: $('#smart-split-button'), abandonFocusButton: $('#abandon-focus-button')
+  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), usageAnalytics: $('#usage-analytics'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), testNotification: $('#test-notification'), reminderDiagnostics: $('#reminder-diagnostics'), exportBackup: $('#export-backup'), importBackup: $('#import-backup'), importBackupFile: $('#import-backup-file'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'),
+  warningDialog: $('#warning-dialog'), warningTitle: $('#warning-title'), warningCopy: $('#warning-copy'), warningContinue: $('#warning-continue'), rewardDialog: $('#reward-dialog'), rewardTaskName: $('#reward-task-name'), rewardOptions: $('#reward-options'), shuffleRewards: $('#shuffle-rewards'), claimReward: $('#claim-reward'), penaltyDialog: $('#penalty-dialog'), penaltyTitle: $('#penalty-title'), penaltyTrigger: $('#penalty-trigger'), penaltyContent: $('#penalty-content'), penaltyLater: $('#penalty-later'), penaltyDone: $('#penalty-done'), appealDialog: $('#appeal-dialog'), appealForm: $('#appeal-form'), appealReason: $('#appeal-reason'), appealHonesty: $('#appeal-honesty'), appealClose: $('#appeal-close'), appealResult: $('#appeal-result'), interruptDialog: $('#interrupt-dialog'), interruptForm: $('#interrupt-form'), interruptReason: $('#interrupt-reason'), interruptClose: $('#interrupt-close'), onboardingDialog: $('#onboarding-dialog'), onboardingDismiss: $('#onboarding-dismiss'), onboardingCreate: $('#onboarding-create'), confirmDialog: $('#confirm-dialog'), confirmTitle: $('#confirm-title'), confirmMessage: $('#confirm-message'), confirmCancel: $('#confirm-cancel'), confirmAccept: $('#confirm-accept'), ionicAlert: $('#ionic-alert'), celebration: $('#celebration'), todayNavBadge: $('#today-nav-badge'), toast: $('#toast'), nodeDialog: $('#node-dialog'), nodeDialogTitle: $('#node-dialog-title'), nodeForm: $('#node-form'), nodeList: $('#node-list'), nodeAllocation: $('#node-allocation'), addNodeButton: $('#add-node-button'), smartSplitButton: $('#smart-split-button'), abandonFocusButton: $('#abandon-focus-button')
 };
 
 let state = freshState();
@@ -76,7 +76,7 @@ let pendingFulfillmentTrackingDate = null;
 function dateKey(date = new Date()) { const offset = date.getTimezoneOffset() * 60000; return new Date(date - offset).toISOString().slice(0, 10); }
 function localDate(date = new Date()) { return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(date); }
 function uid() { return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`; }
-function freshState() { return { tasks: [], events: [], rewards: DEFAULT_REWARDS.map(content => ({ id: uid(), content })), punishments: DEFAULT_PUNISHMENTS.map(content => ({ id: uid(), content })), claimedRewards: [], penaltyRecords: [], freeDays: [], stageRewardsUnlocked: [], reminderDeliveries: [], reminderDiagnostics: { lastCheckedAt: null, lastResult: 'never', lastDeliveredAt: null, lastError: null, nextScheduledAt: null, backgroundMode: 'foreground_only', backgroundError: null }, monthlyReports: [], analytics: { lastFulfillmentDate: null }, settings: { promptStyle: 'gentle', guiltCopy: false, reduceMotion: false, usageAnalytics: true, reminderTime: '10:00' } }; }
+function freshState() { return { tasks: [], events: [], rewards: DEFAULT_REWARDS.map(content => ({ id: uid(), content })), punishments: DEFAULT_PUNISHMENTS.map(content => ({ id: uid(), content })), claimedRewards: [], pendingRewardTaskIds: [], penaltyRecords: [], freeDays: [], stageRewardsUnlocked: [], reminderDeliveries: [], reminderDiagnostics: { lastCheckedAt: null, lastResult: 'never', lastDeliveredAt: null, lastError: null, nextScheduledAt: null, backgroundMode: 'foreground_only', backgroundError: null }, monthlyReports: [], analytics: { lastFulfillmentDate: null }, settings: { promptStyle: 'gentle', guiltCopy: false, reduceMotion: false, usageAnalytics: true, reminderTime: '10:00', onboardingCompleted: false } }; }
 function normalizeState(persisted) {
     const parsed = persisted && Array.isArray(persisted.tasks) ? persisted : freshState();
     const defaults = freshState();
@@ -84,6 +84,7 @@ function normalizeState(persisted) {
     parsed.rewards = Array.isArray(parsed.rewards) ? parsed.rewards : defaults.rewards;
     parsed.punishments = Array.isArray(parsed.punishments) ? parsed.punishments : defaults.punishments;
     parsed.claimedRewards ||= [];
+    parsed.pendingRewardTaskIds ||= [];
     parsed.penaltyRecords ||= [];
     parsed.freeDays ||= [];
     parsed.stageRewardsUnlocked ||= [];
@@ -115,7 +116,7 @@ function focusTask() { return activeTask() || pausedTask(); }
 function taskElapsed(task) { return Math.max(0, task.focusedSeconds || 0); }
 function formatTime(seconds) { const safe = Math.max(0, Math.round(seconds)); const hours = Math.floor(safe / 3600); const minutes = Math.floor((safe % 3600) / 60); const secs = safe % 60; return hours ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}` : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`; }
 function formatDuration(minutes) { const safe = Number(minutes); return safe >= 60 ? `${Number((safe / 60).toFixed(2))} 小时` : `${safe} 分钟`; }
-function taskStatus(task) { return ({ planned: '待开始', makeup: '黄色待补', in_progress: '专注中', paused: '普通暂停', interrupted: '特殊中断', completed: '已完成', failed: '已结束', abandoned: '已放弃' })[task.status] || '待开始'; }
+function taskStatus(task) { return ({ planned: '待开始', makeup: '黄色待补', in_progress: '专注中', paused: '短暂休息', interrupted: '突发中断', completed: '已完成', failed: '已结束', abandoned: '无法继续' })[task.status] || '待开始'; }
 function toast(message) { els.toast.textContent = message; els.toast.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => els.toast.classList.remove('show'), 3200); }
 function availableTodayMinutes(excludeTaskId = null) { return availableMinutesUntilMidnight(new Date(), todayTasks(), excludeTaskId); }
 function isTimeAllowed(minutes, excludeTaskId = null) { return isTaskTimeAllowed(new Date(), todayTasks(), minutes, excludeTaskId); }
@@ -138,6 +139,9 @@ function render() {
   els.todayButton.textContent = localDate().replace(/(周[一二三四五六日])$/, ' $1');
   els.taskCount.textContent = `${tasks.length}项任务`;
   els.dailyScore.textContent = `${completed}/${tasks.length}`;
+  const dailyGoalAchieved = completed > 0;
+  els.dailyGoalStatus.textContent = `今日首次兑现 · ${dailyGoalAchieved ? '已达成' : '待完成'}`;
+  els.dailyGoalStatus.dataset.achieved = String(dailyGoalAchieved);
   const dailyProgress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
   els.dailyPathFill.style.width = `${dailyProgress}%`;
   els.dailyJourney.dataset.stage = !tasks.length ? 'empty' : completed === tasks.length ? 'done' : 'focus';
@@ -180,8 +184,8 @@ function renderTaskList(tasks) {
   els.taskList.innerHTML = tasks.map(task => {
     const progress = taskProgress(task); const nodes = task.nodes.slice(0, 4).map(node => `<span class="node-pill ${node.done ? 'done' : ''}">${escapeHtml(node.title || '未命名节点')}</span>`).join('');
     const plannedActions = task.status === 'planned' ? `<button class="button primary" data-action="start" type="button">开始</button><details class="task-more"><summary>更多</summary><div class="task-more-menu"><button class="button quiet" data-action="nodes" type="button">${task.nodes.length ? '编辑节点' : '拆分节点'}</button><button class="button quiet" data-action="complete" type="button">直接完成</button><button class="button quiet" data-action="edit" type="button">编辑任务</button><button class="button danger" data-action="delete" type="button">删除任务</button></div></details>` : '';
-    const focusActions = ['in_progress','paused'].includes(task.status) ? '<button class="button primary" data-action="focus" type="button">继续专注</button><details class="task-more"><summary>更多</summary><div class="task-more-menu"><button class="button danger" data-action="abandon" type="button">主动放弃</button></div></details>' : '';
-    const interruptedActions = task.status === 'interrupted' ? '<button class="button primary" data-action="start" type="button">继续专注</button><details class="task-more"><summary>更多</summary><div class="task-more-menu"><button class="button danger" data-action="abandon" type="button">主动放弃</button></div></details>' : '';
+    const focusActions = ['in_progress','paused'].includes(task.status) ? '<button class="button primary" data-action="focus" type="button">继续专注</button><details class="task-more"><summary>更多</summary><div class="task-more-menu"><button class="button danger" data-action="abandon" type="button">今天无法继续</button></div></details>' : '';
+    const interruptedActions = task.status === 'interrupted' ? '<button class="button primary" data-action="start" type="button">继续专注</button><details class="task-more"><summary>更多</summary><div class="task-more-menu"><button class="button danger" data-action="abandon" type="button">今天无法继续</button></div></details>' : '';
     const failedActions = task.status === 'failed' && !task.appealUsed ? '<button class="button primary" data-action="appeal" type="button">申请待补</button><details class="task-more"><summary>更多</summary><div class="task-more-menu"><button class="button quiet" data-action="waive-appeal" type="button">放弃申辩</button></div></details>' : '';
     const iconName = task.status === 'planned' ? 'book-outline' : task.status === 'completed' ? 'document-text-outline' : task.status === 'failed' ? 'alert-circle-outline' : task.status === 'makeup' ? 'refresh-circle-outline' : 'list-outline';
     const nodeProgress = task.nodes.length ? `<div class="task-progress" aria-label="节点完成进度 ${progress}%"><span style="width:${progress}%"></span></div><div class="progress-row"><span>${task.nodes.filter(node => node.done).length}/${task.nodes.length} 个节点</span><strong>${progress}%</strong></div><div class="node-preview">${nodes}${task.nodes.length > 4 ? `<span class="node-pill">+${task.nodes.length - 4}</span>` : ''}</div>` : '';
@@ -208,10 +212,10 @@ function renderFocus() {
   const progress = taskProgress(task);
   els.focusProgress.hidden = !task.nodes.length;
   els.focusProgressBar.style.width = `${progress}%`;
-  els.focusState.textContent = task.status === 'paused' ? '普通暂停中' : task.nodes.length ? `已完成 ${progress}%` : '保持专注';
+  els.focusState.textContent = task.status === 'paused' ? '短暂休息中' : task.nodes.length ? `已完成 ${progress}%` : '保持专注';
   const pauseRemaining = Math.max(0, PAUSE_LIMIT_SECONDS - effectivePauseSeconds(task));
-  els.pauseHint.textContent = `普通暂停剩余 ${Math.max(0, PAUSE_LIMIT_COUNT - task.pauseCount)} 次 · ${formatTime(pauseRemaining)}`;
-  els.pauseButton.textContent = task.status === 'paused' ? '继续专注' : '普通暂停';
+  els.pauseHint.textContent = `短暂休息剩余 ${Math.max(0, PAUSE_LIMIT_COUNT - task.pauseCount)} 次 · 共 ${formatTime(pauseRemaining)}`;
+  els.pauseButton.textContent = task.status === 'paused' ? '继续专注' : '短暂休息';
   els.pauseButton.disabled = task.status !== 'paused' && (task.pauseCount >= PAUSE_LIMIT_COUNT || pauseRemaining === 0);
   els.focusNodeList.innerHTML = task.nodes.length ? task.nodes.map(node => `<label class="focus-node ${node.done ? 'done' : ''}"><input type="checkbox" data-focus-node="${node.id}" ${node.done ? 'checked' : ''}><span><strong>${escapeHtml(node.title)}</strong><small>${node.minutes} 分钟</small></span></label>`).join('') : '';
   els.finishButton.disabled = Boolean(task.nodes.length && progress < 100);
@@ -232,7 +236,7 @@ function renderCalendar() {
 }
 function renderSummary(tasks) {
   const focusSeconds = tasks.reduce((sum, task) => sum + taskElapsed(task), 0); const pauses = tasks.reduce((sum, task) => sum + task.pauseCount, 0); const average = tasks.length ? Math.round(tasks.reduce((sum, task) => sum + taskProgress(task), 0) / tasks.length) : 0; const abandoned = todayTasks().filter(task => task.status === 'abandoned').length;
-  els.summaryFocus.textContent = `${Math.floor(focusSeconds / 60)} 分钟`; els.summaryPauses.textContent = `${pauses} 次`; els.summaryProgress.textContent = `${average}%`; els.abandonNote.textContent = abandoned ? `另有 ${abandoned} 个任务以“主动放弃”保留在今日记录中。` : '完成不是完美，而是把承诺落到实处。';
+  els.summaryFocus.textContent = `${Math.floor(focusSeconds / 60)} 分钟`; els.summaryPauses.textContent = `${pauses} 次`; els.summaryProgress.textContent = `${average}%`; els.abandonNote.textContent = abandoned ? `另有 ${abandoned} 个任务以“今天无法继续”保留在今日记录中。` : '完成不是完美，而是把承诺落到实处。';
 }
 
 function renderDayDetail() {
@@ -265,8 +269,8 @@ function renderReports() {
   const tasks = todayTasks(); const done = completedTasks(tasks); const allDone = tasks.length > 0 && done === tasks.length; const resolved = tasks.length > 0 && tasks.every(task => ['completed','failed','abandoned'].includes(task.status)); const pauses = tasks.reduce((sum, task) => sum + task.pauseCount, 0); const appeals = state.events.filter(event => event.date === dateKey() && event.type === 'appealed').length; const abandoned = tasks.filter(task => task.status === 'abandoned').length; const focusMinutes = Math.floor(totalFocusSeconds(tasks) / 60);
   if (isFreeDay(dateKey())) els.dailyReport.innerHTML = '<p class="eyebrow">日总结</p><h2>今天是自由日</h2><p>放心休息。休息不是中断成长，而是成长的一部分。</p>';
   else if (!tasks.length) els.dailyReport.innerHTML = '<p class="eyebrow">日总结</p><h2>今天还没有任务</h2><p>创建并结束至少一个任务后，这里会生成完整复盘。</p>';
-  else if (!resolved) els.dailyReport.innerHTML = `<p class="eyebrow">日总结</p><h2>任务全部结束后生成</h2><p>当前已完成 ${done}/${tasks.length} 个任务。专注 ${focusMinutes} 分钟，普通暂停 ${pauses} 次。</p>`;
-  else els.dailyReport.innerHTML = `<p class="eyebrow">日总结已生成</p><h2>${allDone ? '今天的承诺已经兑现' : '今天的结果已经如实记录'}</h2><div class="report-lines"><p><strong>完成情况</strong><span>${done}/${tasks.length} 个任务完成</span></p><p><strong>专注时长</strong><span>${focusMinutes} 分钟</span></p><p><strong>异常记录</strong><span>暂停 ${pauses} 次 · 申辩 ${appeals} 次 · 主动放弃 ${abandoned} 个</span></p><p><strong>做得好</strong><span>你把过程转化成了可复盘的真实记录。</span></p><p><strong>可改进</strong><span>${pauses > 1 ? '明天尝试减少中途切换，保护连续专注时间。' : allDone ? '保持今天的节奏，为最重要的任务预留充足时间。' : '明天减少任务规模，优先保证最重要的一项能够完成。'}</span></p></div><p class="encouragement">${allDone ? '今天不是“感觉努力”，而是真正完成。很好。' : '真实面对结果，就是下一次做得更好的起点。'}</p>`;
+  else if (!resolved) els.dailyReport.innerHTML = `<p class="eyebrow">日总结</p><h2>任务全部结束后生成</h2><p>当前已完成 ${done}/${tasks.length} 个任务。专注 ${focusMinutes} 分钟，短暂休息 ${pauses} 次。</p>`;
+  else els.dailyReport.innerHTML = `<p class="eyebrow">日总结已生成</p><h2>${allDone ? '今天的承诺已经兑现' : '今天的结果已经如实记录'}</h2><div class="report-lines"><p><strong>完成情况</strong><span>${done}/${tasks.length} 个任务完成</span></p><p><strong>专注时长</strong><span>${focusMinutes} 分钟</span></p><p><strong>异常记录</strong><span>短暂休息 ${pauses} 次 · 申辩 ${appeals} 次 · 无法继续 ${abandoned} 个</span></p><p><strong>做得好</strong><span>你把过程转化成了可复盘的真实记录。</span></p><p><strong>可改进</strong><span>${pauses > 1 ? '明天尝试减少中途切换，保护连续专注时间。' : allDone ? '保持今天的节奏，为最重要的任务预留充足时间。' : '明天减少任务规模，优先保证最重要的一项能够完成。'}</span></p></div><p class="encouragement">${allDone ? '今天不是“感觉努力”，而是真正完成。很好。' : '真实面对结果，就是下一次做得更好的起点。'}</p>`;
   const now = new Date();
   const archived = now.getDate() === 1 ? state.monthlyReports.at(-1) : null;
   const report = archived || buildMonthReport(now.getFullYear(), now.getMonth(), now.getDate());
@@ -314,13 +318,14 @@ function renderStageRewards() {
   const progress = next ? Math.min(100, Math.round(minutes / next.minutes * 100)) : 100;
   const markup = `<img class="stage-badge" src="assets/growth-badge.png" alt="植物成长徽章"><div class="stage-copy"><p class="eyebrow">阶段奖励</p><h2>${next ? `再专注 ${Math.max(0, next.minutes - minutes)} 分钟，解锁${next.reward}` : '当前阶段奖励已全部解锁'}</h2><p>累计专注 ${minutes} 分钟 · 已解锁 ${state.stageRewardsUnlocked.length}/${milestones.length}</p><div class="stage-progress"><span style="width:${progress}%"></span></div></div>`;
   els.stageRewardCard.innerHTML = markup;
-  els.todayStageCard.innerHTML = markup;
+  const pendingTask = state.rewards.length ? [...state.tasks].reverse().find(task => state.pendingRewardTaskIds.includes(task.id)) : null;
+  els.todayStageCard.innerHTML = pendingTask ? `<img class="stage-badge" src="assets/growth-badge.png" alt="植物成长徽章"><div class="stage-copy"><p class="eyebrow">兑现后的回应</p><h2>“${escapeHtml(pendingTask.title)}”已完成</h2><p>奖励不必打断当下节奏，准备好时再领取。</p><button class="button quiet compact-button" type="button" data-claim-pending-reward="${pendingTask.id}">领取本次奖励</button></div>` : markup;
 }
 function escapeHtml(value) { const element = document.createElement('div'); element.textContent = value; return element.innerHTML; }
 
 function createTask(title, minutes, silent = false) { const task = { id: uid(), title: title.trim(), plannedMinutes: Number(minutes), plannedSeconds: Number(minutes) * 60, remainingSeconds: Number(minutes) * 60, focusedSeconds: 0, status: 'planned', nodes: [], manualProgress: 0, pauseCount: 0, pauseUsedSeconds: 0, date: dateKey(), createdAt: new Date().toISOString() }; state.tasks.push(task); addEvent('created', task); saveState(); render(); if (!silent) toast('已加入今天。现在，你只需要开始。'); return task; }
 function startTask(task) { const engaged = focusTask(); if (engaged && engaged.id !== task.id) { toast(`“${engaged.title}”仍在专注或暂停中，请先处理它。`); return; } if (['completed','failed','abandoned'].includes(task.status)) return; task.status = 'in_progress'; task.startedAt ||= new Date().toISOString(); task.lastTickAt = Date.now(); addEvent(task.interruptedAt ? 'resumed_after_interrupt' : 'started', task); saveState(); render(); switchView('focus'); startTicker(); }
-function pauseTask(task) { if (task.status !== 'in_progress') return; if (task.pauseCount >= PAUSE_LIMIT_COUNT || effectivePauseSeconds(task) >= PAUSE_LIMIT_SECONDS) { toast('这个任务今天的普通暂停额度已用完。'); return; } updateRunningTask(task); task.status = 'paused'; task.pausedAt = Date.now(); task.pauseCount += 1; addEvent('paused', task); saveState(); render(); startTicker(); }
+function pauseTask(task) { if (task.status !== 'in_progress') return; if (task.pauseCount >= PAUSE_LIMIT_COUNT || effectivePauseSeconds(task) >= PAUSE_LIMIT_SECONDS) { toast('这个任务今天的短暂休息额度已用完。'); return; } updateRunningTask(task); task.status = 'paused'; task.pausedAt = Date.now(); task.pauseCount += 1; addEvent('paused', task); saveState(); render(); startTicker(); }
 function resumeTask(task) { if (task.status !== 'paused') return; const used = effectivePauseSeconds(task); task.pauseUsedSeconds = used; task.status = 'in_progress'; task.lastTickAt = Date.now(); addEvent('resumed', task); saveState(); render(); startTicker(); }
 async function completeTask(task, madeUp = false) {
   if (!task || task.status === 'completed') return;
@@ -342,7 +347,7 @@ async function completeTask(task, madeUp = false) {
       has_nodes: task.nodes.length ? 'yes' : 'no',
       planned_duration_bucket: durationBucket(task.plannedMinutes),
       focus_duration_bucket: durationBucket(taskElapsed(task) / 60),
-      app_version: 'v28'
+      app_version: 'v29'
     }).then(delivered => {
       if (delivered) {
         state.analytics.lastFulfillmentDate = task.actualCompletedDate;
@@ -351,13 +356,16 @@ async function completeTask(task, madeUp = false) {
       pendingFulfillmentTrackingDate = null;
     });
   }
+  if (state.rewards.length && !state.pendingRewardTaskIds.includes(task.id)) { state.pendingRewardTaskIds.push(task.id); saveState(); }
+  const unlockedReward = checkStageRewards();
   render();
   if (currentView === 'focus') switchView('today');
-  closeTimerFloat(); celebrate(task); openRewardDialog(task); checkStageRewards(); toast(madeUp ? '补做完成，原计划日期已更新为绿钩。' : '任务完成！你做到了，今天的努力算数。');
+  if (!focusTask()) stopTicker();
+  closeTimerFloat(); celebrate(task); toast(unlockedReward ? `兑现成功，同时解锁：${unlockedReward}` : madeUp ? '补做完成，原计划日期已更新为绿钩。' : '兑现成功！奖励已留在今天，可稍后领取。');
 }
 async function abandonTask(task) {
   if (!task || !task.startedAt || ['completed','failed','abandoned'].includes(task.status)) return;
-  const approved = await showConfirm(`主动放弃“${task.title}”？`, '任务将从今日清单移除，但会作为“主动放弃”永久保留在日总结和异常记录中。', '确认放弃');
+  const approved = await showConfirm(`今天无法继续“${task.title}”？`, '任务会从今日清单移除，但仍会如实保留在日总结和异常记录中。', '确认结束');
   if (!approved) return;
   if (task.status === 'in_progress') updateRunningTask(task);
   if (task.status === 'paused') task.pauseUsedSeconds = effectivePauseSeconds(task);
@@ -369,10 +377,10 @@ async function abandonTask(task) {
   stopTicker();
   render();
   if (currentView === 'focus') switchView('today');
-  toast('已记录为主动放弃，可在日总结中复盘。');
+  toast('已记录为今天无法继续，可在日总结中复盘。');
 }
 function updateRunningTask(task) { if (task.status !== 'in_progress') return; const advanced = advanceRunningTimer(task, Date.now()); task.remainingSeconds = advanced.remainingSeconds; task.focusedSeconds = advanced.focusedSeconds; task.lastTickAt = advanced.lastTickAt; maybeWarn(task); if (task.remainingSeconds === 0) { task.status = 'failed'; task.failedAt = new Date().toISOString(); task.lastTickAt = null; addEvent('timed_out', task); closeTimerFloat(); if (currentView === 'focus') switchView('today'); toast(`“${task.title}”倒计时结束。你有一次申辩机会。`); } }
-function updatePausedTask(task) { if (task.status !== 'paused') return; const base = task.pauseUsedSeconds || 0; const elapsed = Math.max(0, Math.floor((Date.now() - (task.pausedAt || Date.now())) / 1000)); if (base + elapsed >= PAUSE_LIMIT_SECONDS) { const resumeAt = (task.pausedAt || Date.now()) + Math.max(0, PAUSE_LIMIT_SECONDS - base) * 1000; task.pauseUsedSeconds = PAUSE_LIMIT_SECONDS; task.status = 'in_progress'; task.lastTickAt = resumeAt; addEvent('pause_limit_reached', task); updateRunningTask(task); toast('45 分钟普通暂停已用完，已自动恢复专注。'); } }
+function updatePausedTask(task) { if (task.status !== 'paused') return; const base = task.pauseUsedSeconds || 0; const elapsed = Math.max(0, Math.floor((Date.now() - (task.pausedAt || Date.now())) / 1000)); if (base + elapsed >= PAUSE_LIMIT_SECONDS) { const resumeAt = (task.pausedAt || Date.now()) + Math.max(0, PAUSE_LIMIT_SECONDS - base) * 1000; task.pauseUsedSeconds = PAUSE_LIMIT_SECONDS; task.status = 'in_progress'; task.lastTickAt = resumeAt; addEvent('pause_limit_reached', task); updateRunningTask(task); toast('45 分钟短暂休息已用完，已自动恢复专注。'); } }
 function tick() { if (!appInitialized) return; state.tasks.forEach(task => { if (task.status === 'paused') updatePausedTask(task); else updateRunningTask(task); }); saveState(); render(); if (!focusTask()) stopTicker(); }
 function startTicker() { if (!timerId) timerId = setInterval(tick, 1000); }
 function stopTicker() { clearInterval(timerId); timerId = null; }
@@ -410,19 +418,21 @@ function showRewardBatch() {
 function openRewardDialog(task) {
   if (!state.rewards.length) return;
   pendingRewardTaskId = task.id; els.rewardTaskName.textContent = `对应任务：${task.title}`; showRewardBatch();
-  setTimeout(() => { if (!els.rewardDialog.open) els.rewardDialog.showModal(); }, state.settings.reduceMotion ? 0 : 350);
+  if (!els.rewardDialog.open) els.rewardDialog.showModal();
 }
 function claimReward() {
   const task = state.tasks.find(item => item.id === pendingRewardTaskId); const reward = state.rewards.find(item => item.id === selectedReward);
   if (!task || !reward) return;
   state.claimedRewards.push({ id: uid(), rewardId: reward.id, content: reward.content, taskId: task.id, taskTitle: task.title, claimedAt: new Date().toISOString() });
-  addEvent('reward_claimed', task, { reward: reward.content }); saveState(); els.rewardDialog.close(); toast(`已领取：${reward.content}`);
+  state.pendingRewardTaskIds = state.pendingRewardTaskIds.filter(id => id !== task.id);
+  addEvent('reward_claimed', task, { reward: reward.content }); saveState(); render(); els.rewardDialog.close(); toast(`已领取：${reward.content}`);
 }
 function checkStageRewards() {
   const minutes = Math.floor(totalFocusSeconds() / 60); const milestones = [{ minutes: 120, reward: '两小时专注徽章' }, { minutes: 300, reward: '五小时坚持徽章' }, { minutes: 600, reward: '十小时兑现徽章' }];
   const unlocked = milestones.filter(item => minutes >= item.minutes && !state.stageRewardsUnlocked.includes(item.minutes));
   unlocked.forEach(item => { state.stageRewardsUnlocked.push(item.minutes); state.events.push({ id: uid(), type: 'stage_reward', at: new Date().toISOString(), date: dateKey(), reward: item.reward }); });
-  if (unlocked.length) { saveState(); setTimeout(() => toast(`阶段奖励解锁：${unlocked.at(-1).reward}`), 1900); }
+  if (unlocked.length) saveState();
+  return unlocked.at(-1)?.reward || null;
 }
 
 function recordReminderDiagnostic(result, error = null) {
@@ -514,28 +524,33 @@ function checkNoPlanPenalty() { const delivery = state.reminderDeliveries.find(i
 
 function openAppeal(task) { if (task.appealUsed) return; pendingAppealTaskId = task.id; els.appealForm.reset(); els.appealResult.textContent = ''; els.appealResult.className = 'appeal-result'; els.appealDialog.showModal(); }
 function waiveAppeal(task) { task.appealUsed = true; task.appealReason = '用户主动放弃申辩'; addEvent('appeal_waived', task); saveState(); triggerPenalty('task_failure', task); render(); toast('已放弃申辩，任务保持失败并触发一次安全约束。'); }
-function interruptTask(task, reason) { if (!task || task.status !== 'in_progress') return; updateRunningTask(task); task.status = 'interrupted'; task.interruptedAt = new Date().toISOString(); task.interruptReason = reason; addEvent('special_interrupted', task, { reason }); saveState(); closeTimerFloat(); render(); switchView('today'); toast('特殊中断已记录，任务进度已保留。'); }
+function interruptTask(task, reason) { if (!task || task.status !== 'in_progress') return; updateRunningTask(task); task.status = 'interrupted'; task.interruptedAt = new Date().toISOString(); task.interruptReason = reason; addEvent('special_interrupted', task, { reason }); saveState(); closeTimerFloat(); render(); switchView('today'); toast('突发情况已记录，任务进度已保留。'); }
 
 function rolloverInterruptedTasks() { state.tasks.filter(task => task.status === 'interrupted' && task.date < dateKey()).forEach(task => { task.status = 'makeup'; addEvent('interruption_became_makeup', task); }); }
-function openTaskEditor(task = null) { if (task && task.status !== 'planned') { toast('任务开始后不能编辑。'); return; } editingTaskId = task?.id || null; durationUnit = 'minutes'; document.querySelectorAll('[data-duration-unit]').forEach(button => button.classList.toggle('active', button.dataset.durationUnit === durationUnit)); els.taskEditorEyebrow.textContent = task ? '编辑任务' : '新增任务'; els.taskEditorHeading.textContent = task ? '调整尚未开始的计划' : '给今天一个清晰目标'; els.saveTaskButton.textContent = task ? '保存修改' : '加入今天'; els.title.value = task?.title || ''; els.duration.value = task?.plannedMinutes || ''; els.formMessage.textContent = ''; els.durationHint.textContent = `最短 1 分钟；按当前计划，今天还可安排 ${availableTodayMinutes(task?.id)} 分钟。`; switchView('task-editor'); setTimeout(() => els.title.focus(), 80); }
-function closeTaskEditor() { editingTaskId = null; els.taskForm.reset(); els.formMessage.textContent = ''; switchView('today'); }
+function openTaskEditor(task = null) { if (task && task.status !== 'planned') { toast('任务开始后不能编辑。'); return; } editingTaskId = task?.id || null; durationUnit = 'minutes'; document.querySelectorAll('[data-duration-unit]').forEach(button => { const active = button.dataset.durationUnit === durationUnit; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); document.querySelectorAll('[data-quick-duration]').forEach(button => button.classList.remove('active')); els.taskEditorEyebrow.textContent = task ? '编辑任务' : '新增任务'; els.taskEditorHeading.textContent = task ? '调整尚未开始的计划' : '给今天一个清晰目标'; els.saveTaskButton.textContent = task ? '保存修改' : '只加入今天'; els.saveStartTaskButton.hidden = Boolean(task); els.title.value = task?.title || ''; els.duration.value = task?.plannedMinutes || ''; els.formMessage.textContent = ''; els.durationHint.textContent = `最短 1 分钟；按当前计划，今天还可安排 ${availableTodayMinutes(task?.id)} 分钟。`; switchView('task-editor'); setTimeout(() => els.title.focus(), 80); }
+function closeTaskEditor() { editingTaskId = null; els.taskForm.reset(); document.querySelectorAll('[data-quick-duration]').forEach(button => button.classList.remove('active')); els.formMessage.textContent = ''; switchView('today'); }
 function changeDurationUnit(unit) { if (unit === durationUnit) return; const currentMinutes = durationToMinutes(els.duration.value, durationUnit); durationUnit = unit; document.querySelectorAll('[data-duration-unit]').forEach(button => { const active = button.dataset.durationUnit === unit; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); els.duration.min = unit === 'hours' ? '0.02' : '1'; els.duration.max = unit === 'hours' ? '24' : '1440'; els.duration.step = unit === 'hours' ? '0.01' : '1'; els.duration.placeholder = unit === 'hours' ? '例如：1.5' : '例如：45'; if (currentMinutes) els.duration.value = unit === 'hours' ? Number((currentMinutes / 60).toFixed(2)) : currentMinutes; }
-async function saveTaskFromForm() { const title = els.title.value.trim(); const minutes = durationToMinutes(els.duration.value, durationUnit); const task = state.tasks.find(item => item.id === editingTaskId); els.formMessage.textContent = ''; if (!title) { els.formMessage.textContent = '请写下要学习的内容。'; return; } if (!Number.isInteger(minutes) || minutes < 1) { els.formMessage.textContent = '预计时长最短为 1 分钟。'; return; } if (!isTimeAllowed(minutes, task?.id)) { els.formMessage.textContent = `今天最多还可安排 ${availableTodayMinutes(task?.id)} 分钟，请缩短时长。`; return; } if (!task) { createTask(title, minutes); closeTaskEditor(); return; } if (task.nodes.length && task.nodes.reduce((sum, node) => sum + node.minutes, 0) !== minutes) { const approved = await showConfirm('节点时长需要重新分配', '修改总时长后，现有节点时长将不再匹配。确认后会清空节点，请重新拆分。', '继续修改'); if (!approved) return; task.nodes = []; task.manualProgress = 0; } task.title = title; task.plannedMinutes = minutes; task.plannedSeconds = minutes * 60; task.remainingSeconds = minutes * 60; task.warned = false; addEvent('edited', task); saveState(); render(); closeTaskEditor(); toast('任务已更新。'); }
+function chooseQuickDuration(minutes) { durationUnit = 'minutes'; document.querySelectorAll('[data-duration-unit]').forEach(button => { const active = button.dataset.durationUnit === 'minutes'; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); }); document.querySelectorAll('[data-quick-duration]').forEach(button => button.classList.toggle('active', Number(button.dataset.quickDuration) === minutes)); els.duration.min = '1'; els.duration.max = '1440'; els.duration.step = '1'; els.duration.placeholder = '例如：45'; els.duration.value = String(minutes); els.duration.focus(); }
+async function saveTaskFromForm(startNow = false) { const title = els.title.value.trim(); const minutes = durationToMinutes(els.duration.value, durationUnit); const task = state.tasks.find(item => item.id === editingTaskId); els.formMessage.textContent = ''; if (!title) { els.formMessage.textContent = '请写下要学习的内容。'; return; } if (!Number.isInteger(minutes) || minutes < 1) { els.formMessage.textContent = '预计时长最短为 1 分钟。'; return; } if (!isTimeAllowed(minutes, task?.id)) { els.formMessage.textContent = `今天最多还可安排 ${availableTodayMinutes(task?.id)} 分钟，请缩短时长。`; return; } if (!task) { const created = createTask(title, minutes, true); closeTaskEditor(); if (startNow) startTask(created); else toast('已加入今天。准备好时再开始。'); return; } if (task.nodes.length && task.nodes.reduce((sum, node) => sum + node.minutes, 0) !== minutes) { const approved = await showConfirm('节点时长需要重新分配', '修改总时长后，现有节点时长将不再匹配。确认后会清空节点，请重新拆分。', '继续修改'); if (!approved) return; task.nodes = []; task.manualProgress = 0; } task.title = title; task.plannedMinutes = minutes; task.plannedSeconds = minutes * 60; task.remainingSeconds = minutes * 60; task.warned = false; addEvent('edited', task); saveState(); render(); closeTaskEditor(); toast('任务已更新。'); }
 function shuffleSuggestionBatch() { currentSuggestions = pickSuggestionBatch(SUGGESTION_POOL, currentSuggestions); renderSuggestions(visibleTasks()); toast('已换一批建议任务。'); }
 function publishSuggestion(index) { const item = currentSuggestions[index]; if (!item) return; if (!isTimeAllowed(item.minutes)) { toast(`今天最多还可安排 ${availableTodayMinutes()} 分钟，无法发布这条建议。`); return; } createTask(item.title, item.minutes); }
 function publishAllSuggestions() { const total = currentSuggestions.reduce((sum, item) => sum + item.minutes, 0); if (!isTimeAllowed(total)) { toast(`三条建议共 ${total} 分钟，今天最多还可安排 ${availableTodayMinutes()} 分钟。`); return; } currentSuggestions.forEach(item => createTask(item.title, item.minutes, true)); toast('3 个建议任务已全部发布。'); }
 function showFallbackConfirm(title, message, acceptLabel) { els.confirmTitle.textContent = title; els.confirmMessage.textContent = message; els.confirmAccept.textContent = acceptLabel; els.confirmDialog.showModal(); return new Promise(resolve => { confirmResolver = resolve; }); }
 async function showConfirm(title, message, acceptLabel = '确认') { return showFallbackConfirm(title, message, acceptLabel); }
+function exportLocalBackup() { const backup = createPortableBackup(state); if (!backup) { toast('当前数据无法导出，请稍后重试。'); return; } const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `今日兑现-本地备份-${dateKey()}.json`; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0); toast('备份已导出，请妥善保存文件。'); }
+async function importLocalBackup(file) { if (!file) return; let imported = null; try { imported = parsePortableBackup(await file.text()); } catch { /* The validation message below is enough. */ } els.importBackupFile.value = ''; if (!imported) { toast('这不是有效的“今日兑现”备份文件。'); return; } const approved = await showConfirm('导入这份本地备份？', '导入后会用备份内容覆盖这台设备当前的任务与记录。建议先导出当前数据留档。', '确认导入'); if (!approved) return; stopTicker(); state = normalizeState(imported); saveState(); configureAnalytics(state.settings.usageAnalytics); render(); switchView('today'); if (focusTask()) startTicker(); toast('备份已导入，任务与记录已恢复。'); }
+function completeOnboarding(openCreator = false) { state.settings.onboardingCompleted = true; saveState(); if (els.onboardingDialog.open) els.onboardingDialog.close(); if (openCreator) openTaskEditor(); }
 async function openTimerFloat() { const task = focusTask(); if (!task) return; if ('documentPictureInPicture' in window) { try { pipWindow = await window.documentPictureInPicture.requestWindow({ width: 180, height: 90 }); pipWindow.document.body.innerHTML = ''; const style = pipWindow.document.createElement('style'); style.textContent = 'body{margin:0;display:grid;place-items:center;height:100vh;background:#163d34;color:#fff;font:800 38px/1 ui-rounded,system-ui;font-variant-numeric:tabular-nums;letter-spacing:-.06em}'; pipWindow.document.head.append(style); pipTimeElement = pipWindow.document.createElement('time'); pipTimeElement.textContent = formatTime(task.remainingSeconds); pipWindow.document.body.append(pipTimeElement); pipWindow.addEventListener('pagehide', () => { pipWindow = null; pipTimeElement = null; }); toast('倒计时浮窗已开启。'); return; } catch { /* 用户取消或浏览器拒绝时继续尝试通知 */ } } await showTimerNotification(task); }
 async function showTimerNotification(task) { if (!('Notification' in window) || !('serviceWorker' in navigator)) { toast('当前浏览器不支持浮窗或后台通知。'); return; } try { let permission = Notification.permission; if (permission === 'default') permission = await Notification.requestPermission(); if (permission !== 'granted') { toast('未获得通知权限，倒计时仍会在后台继续。'); return; } const endAt = new Date(Date.now() + task.remainingSeconds * 1000); const registration = await navigator.serviceWorker.ready; await registration.showNotification(formatTime(task.remainingSeconds), { body: `预计 ${endAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} 结束，点击返回专注。`, icon: './icon.svg', tag: 'focus-timer', requireInteraction: true, data: { view: 'focus' } }); toast('已在通知栏显示预计结束时间。'); } catch { toast('系统未能显示通知，倒计时仍会继续。'); } }
 function closeTimerFloat() { if (pipWindow && !pipWindow.closed) pipWindow.close(); pipWindow = null; pipTimeElement = null; }
 
-els.taskForm.addEventListener('submit', event => { event.preventDefault(); saveTaskFromForm(); });
+els.taskForm.addEventListener('submit', event => { event.preventDefault(); saveTaskFromForm(event.submitter?.dataset.saveMode === 'start'); });
 els.openCreateTask.addEventListener('click', () => openTaskEditor());
 document.querySelectorAll('.nav-item').forEach(button => button.addEventListener('click', () => switchView(button.dataset.target)));
 els.closeTaskEditor.addEventListener('click', closeTaskEditor);
 els.cancelTaskEditor.addEventListener('click', closeTaskEditor);
 document.querySelectorAll('[data-duration-unit]').forEach(button => button.addEventListener('click', () => changeDurationUnit(button.dataset.durationUnit)));
+document.querySelectorAll('[data-quick-duration]').forEach(button => button.addEventListener('click', () => chooseQuickDuration(Number(button.dataset.quickDuration))));
 els.suggestionList.addEventListener('click', event => { const button = event.target.closest('[data-publish-suggestion]'); if (button) publishSuggestion(Number(button.dataset.publishSuggestion)); });
 els.shuffleSuggestions.addEventListener('click', shuffleSuggestionBatch);
 els.publishAllSuggestions.addEventListener('click', publishAllSuggestions);
@@ -551,6 +566,7 @@ els.miniFocusBar.addEventListener('click', () => switchView('focus'));
 els.leaveFocus.addEventListener('click', () => switchView('today'));
 els.floatTimerButton.addEventListener('click', openTimerFloat);
 els.todayButton.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+els.todayStageCard.addEventListener('click', event => { const button = event.target.closest('[data-claim-pending-reward]'); if (!button) return; const task = state.tasks.find(item => item.id === button.dataset.claimPendingReward); if (task) openRewardDialog(task); });
 document.querySelector('#view-calendar').addEventListener('click', event => {
   const makeupButton = event.target.closest('[data-makeup-task]');
   if (makeupButton) { const task = state.tasks.find(item => item.id === makeupButton.dataset.makeupTask); if (task) completeTask(task, true); return; }
@@ -589,6 +605,9 @@ els.usageAnalytics.addEventListener('change', () => {
 els.reminderTime.addEventListener('change', () => { state.settings.reminderTime = els.reminderTime.value || '10:00'; saveState(); checkReminderDelivery('setting_changed'); scheduleReminderCheck(); toast(`每日提醒时间已设为 ${state.settings.reminderTime}。`); });
 els.notificationPermission.addEventListener('click', requestNotificationAccess);
 els.testNotification.addEventListener('click', testNotificationDelivery);
+els.exportBackup.addEventListener('click', exportLocalBackup);
+els.importBackup.addEventListener('click', () => els.importBackupFile.click());
+els.importBackupFile.addEventListener('change', () => importLocalBackup(els.importBackupFile.files?.[0]));
 els.rewardForm.addEventListener('submit', event => { event.preventDefault(); const content = els.rewardInput.value.trim(); if (!content) return; state.rewards.push({ id: uid(), content }); els.rewardForm.reset(); saveState(); renderPools(); });
 els.punishmentForm.addEventListener('submit', event => { event.preventDefault(); const content = els.punishmentInput.value.trim(); if (!content) return; state.punishments.push({ id: uid(), content }); els.punishmentForm.reset(); saveState(); renderPools(); });
 els.rewardList.addEventListener('click', event => { const button = event.target.closest('[data-remove-reward]'); if (!button) return; state.rewards = state.rewards.filter(item => item.id !== button.dataset.removeReward); saveState(); renderPools(); });
@@ -609,6 +628,9 @@ els.nodeForm.addEventListener('submit', event => { if (event.submitter?.value ==
 els.confirmCancel.addEventListener('click', () => { els.confirmDialog.close(); confirmResolver?.(false); confirmResolver = null; });
 els.confirmAccept.addEventListener('click', () => { els.confirmDialog.close(); confirmResolver?.(true); confirmResolver = null; });
 els.confirmDialog.addEventListener('cancel', event => { event.preventDefault(); els.confirmDialog.close(); confirmResolver?.(false); confirmResolver = null; });
+els.onboardingDismiss.addEventListener('click', () => completeOnboarding(false));
+els.onboardingCreate.addEventListener('click', () => completeOnboarding(true));
+els.onboardingDialog.addEventListener('cancel', event => { event.preventDefault(); completeOnboarding(false); });
 
 async function deleteTask(task) { if (task.status !== 'planned') return; const approved = await showConfirm(`删除“${task.title}”？`, '删除后该任务和未开始记录将从今天移除。', '删除任务'); if (!approved) return; state.tasks = state.tasks.filter(item => item.id !== task.id); state.events = state.events.filter(event => event.taskId !== task.id); saveState(); render(); toast('任务已删除。'); }
 
@@ -629,6 +651,7 @@ async function initializeApp() {
   document.body.classList.add('app-loading');
   const restored = await loadPersistedState();
   state = normalizeState(restored.state);
+  const shouldShowOnboarding = !restored.found && !state.tasks.length && !state.settings.onboardingCompleted;
   appInitialized = true;
   rolloverInterruptedTasks();
   ensurePreviousMonthReport();
@@ -643,6 +666,7 @@ async function initializeApp() {
   requestPersistentStorage();
   scheduleReminderCheck();
   configureBackgroundReminder();
+  if (shouldShowOnboarding) setTimeout(() => { if (!document.querySelector('dialog[open]')) els.onboardingDialog.showModal(); }, 180);
 }
 initializeApp();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); checkReminderDelivery('visibility_resume'); scheduleReminderCheck(); } });

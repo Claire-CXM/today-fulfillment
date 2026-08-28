@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icon.svg" />
     <link rel="stylesheet" href="node_modules/@ionic/core/css/ionic.bundle.css" />
-    <link rel="stylesheet" href="styles.css?v=28" />
+    <link rel="stylesheet" href="styles.css?v=29" />
     <title>今日兑现</title>
   </head>
   <body data-view="today">
@@ -30,6 +30,7 @@
         <section class="hero" aria-labelledby="daily-title">
           <div class="hero-copy">
             <p class="eyebrow">今天的承诺</p>
+            <p class="daily-goal-status" id="daily-goal-status" data-achieved="false">今日首次兑现 · 待完成</p>
             <h2 id="daily-title">把一件事，做到完成。</h2>
             <p id="daily-note">先写下计划，再开始专注。</p>
             <p class="daily-progress">今日完成 <strong id="daily-score">0/0</strong></p>
@@ -59,9 +60,10 @@
         <section class="editor-card">
           <form id="task-form" novalidate>
             <label>学习内容<input id="task-title" name="title" maxlength="60" placeholder="例如：完成第 3 章习题" required /></label>
-            <fieldset class="duration-field"><legend>预计时长</legend><div class="duration-row"><input id="task-duration" name="duration" type="number" min="1" max="1440" step="1" inputmode="decimal" placeholder="例如：45" aria-label="预计时长数值" aria-describedby="duration-hint" required /><div class="unit-switch" role="group" aria-label="时长单位"><button class="active" type="button" data-duration-unit="minutes" aria-pressed="true">分钟</button><button type="button" data-duration-unit="hours" aria-pressed="false">小时</button></div></div><small id="duration-hint">最短 1 分钟，且今天的计划总时长不能跨过 24:00。</small></fieldset>
+            <fieldset class="duration-field"><legend>预计时长</legend><div class="quick-duration-list" role="group" aria-label="快速选择预计时长"><button type="button" data-quick-duration="15">15 分钟</button><button type="button" data-quick-duration="25">25 分钟</button><button type="button" data-quick-duration="45">45 分钟</button><button type="button" data-quick-duration="60">60 分钟</button></div><div class="duration-row"><input id="task-duration" name="duration" type="number" min="1" max="1440" step="1" inputmode="decimal" placeholder="例如：45" aria-label="预计时长数值" aria-describedby="duration-hint" required /><div class="unit-switch" role="group" aria-label="时长单位"><button class="active" type="button" data-duration-unit="minutes" aria-pressed="true">分钟</button><button type="button" data-duration-unit="hours" aria-pressed="false">小时</button></div></div><small id="duration-hint">最短 1 分钟，且今天的计划总时长不能跨过 24:00。</small></fieldset>
+            <p class="task-editor-tip">预计超过 45 分钟或包含多个步骤时，再拆分节点；短任务可以直接开始。</p>
             <p class="form-message" id="form-message" role="alert"></p>
-            <div class="editor-actions"><button class="button quiet" id="cancel-task-editor" type="button">取消</button><button class="button primary" id="save-task-button" type="submit">加入今天</button></div>
+            <div class="editor-actions"><button class="button quiet" id="cancel-task-editor" type="button">取消</button><button class="button outline" id="save-task-button" type="submit" data-save-mode="plan">只加入今天</button><button class="button primary" id="save-start-task-button" type="submit" data-save-mode="start">保存并开始</button></div>
           </form>
         </section>
       </section>
@@ -76,9 +78,8 @@
           <div class="focus-node-list" id="focus-node-list"></div>
           <div class="focus-controls">
             <button class="button primary" id="finish-button" type="button">完成任务</button>
-            <button class="button secondary" id="pause-button" type="button">普通暂停</button>
-            <button class="button outline" id="interrupt-button" type="button">特殊中断</button>
-            <button class="button danger" id="abandon-focus-button" type="button">主动放弃</button>
+            <button class="button secondary" id="pause-button" type="button">短暂休息</button>
+            <details class="focus-more"><summary>更多处理方式</summary><div class="focus-more-menu"><button class="button outline" id="interrupt-button" type="button">遇到突发情况</button><button class="button danger" id="abandon-focus-button" type="button">今天无法继续</button></div></details>
           </div>
         </section>
       </section>
@@ -99,10 +100,10 @@
       </section>
 
       <section class="app-view" id="view-review" data-view="review" hidden>
-        <div class="page-intro"><p class="eyebrow">今日复盘</p><h2>看见过程，才更容易进步。</h2><p>专注、暂停和主动放弃都会如实留在今天的记录中。</p></div>
+        <div class="page-intro"><p class="eyebrow">今日复盘</p><h2>看见过程，才更容易进步。</h2><p>专注、短暂休息和无法继续的情况，都会如实留在今天的记录中。</p></div>
         <section class="summary-card" aria-labelledby="summary-title">
           <p class="eyebrow">今日记录</p><h2 id="summary-title">专注的每一分钟都有迹可循</h2>
-          <div class="summary-grid"><div><strong id="summary-focus">0 分钟</strong><span>已专注</span></div><div><strong id="summary-pauses">0 次</strong><span>普通暂停</span></div><div><strong id="summary-progress">0%</strong><span>整体进度</span></div></div>
+          <div class="summary-grid"><div><strong id="summary-focus">0 分钟</strong><span>已专注</span></div><div><strong id="summary-pauses">0 次</strong><span>短暂休息</span></div><div><strong id="summary-progress">0%</strong><span>整体进度</span></div></div>
           <p class="abandon-note" id="abandon-note"></p>
         </section>
         <section class="reflection-card" id="daily-report" aria-live="polite"></section>
@@ -142,6 +143,11 @@
             <img class="settings-link-arrow" src="node_modules/@ionic/core/dist/ionic/svg/chevron-forward.svg" alt="" aria-hidden="true">
           </a>
         </section>
+        <section class="preference-card backup-card" aria-labelledby="backup-heading">
+          <div class="section-heading compact"><div><p class="eyebrow">本地数据安全</p><h2 id="backup-heading">给学习记录留一份可带走的备份</h2></div></div>
+          <p class="backup-copy">数据不会自动同步到云端。建议定期导出；换设备或清理浏览器数据前尤其需要备份。</p>
+          <div class="backup-actions"><button class="button quiet" id="export-backup" type="button">导出备份</button><button class="button outline" id="import-backup" type="button">导入备份</button><input id="import-backup-file" type="file" accept="application/json,.json" hidden aria-label="选择今日兑现备份文件"></div>
+        </section>
         <section class="preference-card analytics-preference-card" aria-labelledby="analytics-heading">
           <div class="section-heading compact"><div><p class="eyebrow">数据与隐私</p><h2 id="analytics-heading">匿名使用统计</h2></div></div>
           <label class="switch-row analytics-switch-row"><span><strong>使用数据统计</strong><small id="analytics-description">帮助我们了解有多少用户完成一次兑现；不会上传任务内容或联系方式</small></span><input id="usage-analytics" type="checkbox" role="switch" aria-describedby="analytics-description" checked></label>
@@ -152,6 +158,7 @@
           <label>文案风格<select id="prompt-style"><option value="gentle">温和鼓励</option><option value="direct">直接督促</option><option value="humorous">幽默自嘲</option></select></label>
           <label>每日计划提醒时间<input id="reminder-time" type="time" value="10:00" /></label>
           <div class="notification-setting"><span><strong>系统通知</strong><small id="notification-status">尚未授权通知</small></span><div class="notification-actions"><button class="button outline" id="test-notification" type="button" disabled>测试通知</button><button class="button quiet" id="notification-permission" type="button">授权通知</button></div></div>
+          <p class="reminder-reliability-note">提醒并非闹钟：页面打开时可按设定时间精确提醒；安装 PWA 且系统支持时会尝试后台补偿，但仍可能因省电或浏览器限制而延迟、漏发。</p>
           <p class="reminder-diagnostics" id="reminder-diagnostics" role="status">正在检查提醒状态…</p>
           <label class="switch-row"><span><strong>愧疚式文案</strong><small>关闭后所有提醒只陈述事实与行动建议</small></span><input id="guilt-copy" type="checkbox" role="switch"></label>
           <label class="switch-row"><span><strong>减少动画</strong><small>关闭烟花与大幅庆祝动效</small></span><input id="reduce-motion" type="checkbox" role="switch"></label>
@@ -167,16 +174,17 @@
       <button class="nav-item" type="button" data-target="profile"><img class="nav-icon" src="assets/icons/person-outline.svg" alt=""><span>我的</span></button>
     </nav>
 
-    <dialog id="node-dialog" class="modal"><form method="dialog" id="node-form"><div class="modal-head"><div><p class="eyebrow">节点</p><h2 id="node-dialog-title">拆分任务</h2></div><button class="icon-button" value="cancel" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><p class="muted">最多 10 个节点，所有节点时长之和必须等于任务总时长。</p><div class="allocation-status" id="node-allocation"></div><div id="node-list" class="node-editor"></div><div class="node-tools"><button class="button outline" id="add-node-button" type="button"><img class="button-icon" src="assets/icons/add-outline.svg" alt="">添加节点</button><button class="button quiet" id="smart-split-button" type="button">规则智能拆分</button></div><div class="modal-actions"><button class="button quiet" value="cancel">取消</button><button class="button primary" id="save-nodes-button" value="default">保存节点</button></div></form></dialog>
+    <dialog id="node-dialog" class="modal"><form method="dialog" id="node-form"><div class="modal-head"><div><p class="eyebrow">节点</p><h2 id="node-dialog-title">拆分任务</h2></div><button class="icon-button" value="cancel" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><p class="muted">节点适合长任务或多步骤任务，例如“阅读 → 练习 → 复盘”。短任务不拆也能直接开始。最多 10 个节点，时长之和需等于任务总时长。</p><div class="allocation-status" id="node-allocation"></div><div id="node-list" class="node-editor"></div><div class="node-tools"><button class="button outline" id="add-node-button" type="button"><img class="button-icon" src="assets/icons/add-outline.svg" alt="">添加节点</button><button class="button quiet" id="smart-split-button" type="button">帮我拆分</button></div><div class="modal-actions"><button class="button quiet" value="cancel">取消</button><button class="button primary" id="save-nodes-button" value="default">保存节点</button></div></form></dialog>
     <dialog id="warning-dialog" class="modal notice-modal"><div><p class="eyebrow">临期提醒</p><h2 id="warning-title">距离结束不远了</h2><p id="warning-copy"></p><button class="button primary" id="warning-continue" type="button">继续兑现</button></div></dialog>
     <dialog id="reward-dialog" class="modal reward-modal"><div><p class="eyebrow">任务奖励</p><h2>选一个，认真犒劳自己</h2><p class="muted" id="reward-task-name"></p><div class="reward-options" id="reward-options"></div><div class="modal-actions"><button class="button outline" id="shuffle-rewards" type="button">换一批</button><button class="button primary" id="claim-reward" type="button" disabled>领取奖励</button></div></div></dialog>
     <dialog id="penalty-dialog" class="modal penalty-modal"><div><p class="eyebrow">今日约束</p><h2 id="penalty-title">兑现约束</h2><p class="muted" id="penalty-trigger"></p><p class="penalty-content" id="penalty-content"></p><p class="muted">本次结果不能更换。完成后请自行诚信确认。</p><div class="modal-actions"><button class="button quiet" id="penalty-later" type="button">稍后完成</button><button class="button primary" id="penalty-done" type="button">确认已完成</button></div></div></dialog>
     <dialog id="appeal-dialog" class="modal"><form id="appeal-form"><div class="modal-head"><div><p class="eyebrow">一次申辩机会</p><h2>说明这次没有完成的原因</h2></div><button class="icon-button" type="button" id="appeal-close" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><p class="review-mode">当前使用：本地规则审核（未调用云端 AI）</p><label>申辩原因<textarea id="appeal-reason" maxlength="300" required placeholder="如实记录发生了什么"></textarea></label><label class="honesty-check"><input id="appeal-honesty" type="checkbox" required><span>我确认以上原因真实，并愿意后续补做</span></label><p class="appeal-result" id="appeal-result" role="status"></p><button class="button primary" type="submit">提交审核</button></form></dialog>
-    <dialog id="interrupt-dialog" class="modal"><form id="interrupt-form"><div class="modal-head"><div><p class="eyebrow">特殊中断</p><h2>记录无法继续的原因</h2></div><button class="icon-button" type="button" id="interrupt-close" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><label>中断原因<textarea id="interrupt-reason" maxlength="300" required placeholder="例如：突发身体不适、临时紧急事务"></textarea></label><p class="muted">特殊中断不限时并保留进度；跨过 24:00 后自动转为黄色待补。</p><button class="button primary" type="submit">确认中断</button></form></dialog>
+    <dialog id="interrupt-dialog" class="modal"><form id="interrupt-form"><div class="modal-head"><div><p class="eyebrow">突发情况</p><h2>这次先停下，进度会保留</h2></div><button class="icon-button" type="button" id="interrupt-close" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><label>发生了什么<textarea id="interrupt-reason" maxlength="300" required placeholder="例如：身体不适、临时紧急事务"></textarea></label><p class="muted">适合无法预料、不能短时间返回的情况；不占用短暂休息额度。跨过 24:00 后会转为黄色待补。</p><button class="button primary" type="submit">保留进度并退出</button></form></dialog>
+    <dialog id="onboarding-dialog" class="modal onboarding-modal"><div><div class="onboarding-head"><img src="assets/growth-badge.png" alt="植物成长徽章"><div><p class="eyebrow">第一次使用</p><h2>完成一件，就是一次兑现</h2></div></div><ol class="onboarding-steps"><li><strong>写下一件要完成的事</strong><span>先守住最重要的一件，不必把今天排满。</span></li><li><strong>开始专注，按需拆节点</strong><span>长任务可拆步骤；短任务直接开始即可。</span></li><li><strong>完成后如实记录</strong><span>短暂休息和突发情况都有合适的处理方式。</span></li></ol><div class="modal-actions"><button class="button quiet" id="onboarding-dismiss" type="button">先看看</button><button class="button primary" id="onboarding-create" type="button">创建第一件任务</button></div></div></dialog>
     <dialog id="confirm-dialog" class="modal confirm-modal"><div><p class="eyebrow">请确认</p><h2 id="confirm-title">确认操作</h2><p id="confirm-message"></p><div class="modal-actions"><button class="button quiet" id="confirm-cancel" type="button">取消</button><button class="button primary" id="confirm-accept" type="button">确认</button></div></div></dialog>
     <ion-alert id="ionic-alert"></ion-alert>
     <div class="celebration" id="celebration" hidden aria-hidden="true"><div class="celebration-card"><img src="assets/growth-badge.png" alt=""><strong>兑现成功</strong><span>这一件事，已经认真完成。</span></div></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=28"></script>
+  <script type="module" src="app.js?v=29"></script>
   </body>
 </html>

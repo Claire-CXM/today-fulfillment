@@ -10,6 +10,29 @@ function isValidState(value) {
   return Boolean(value && typeof value === 'object' && Array.isArray(value.tasks));
 }
 
+export function createPortableBackup(data, now = Date.now) {
+  if (!isValidState(data)) return null;
+  return {
+    product: 'today-fulfillment',
+    formatVersion: 1,
+    schemaVersion: DATA_SCHEMA_VERSION,
+    exportedAt: new Date(now()).toISOString(),
+    data: JSON.parse(JSON.stringify(data))
+  };
+}
+
+export function parsePortableBackup(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (parsed?.product && parsed.product !== 'today-fulfillment') return null;
+    const data = parsed?.data ?? parsed;
+    return isValidState(data) ? JSON.parse(JSON.stringify(data)) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseSnapshot(raw) {
   if (!raw) return null;
   try {

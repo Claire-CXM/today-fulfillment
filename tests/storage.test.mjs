@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STORAGE_KEY, createPersistence, parseSnapshot } from '../storage.js';
+import { STORAGE_KEY, createPersistence, createPortableBackup, parsePortableBackup, parseSnapshot } from '../storage.js';
 
 function memoryPrimary(initial = null) {
   const values = new Map(initial === null ? [] : [[STORAGE_KEY, initial]]);
@@ -67,4 +67,19 @@ test('双份数据不一致时选择修订号更新的一份', async () => {
   const restored = await persistence.load();
   assert.equal(restored.recovered, true);
   assert.equal(restored.state.tasks[0].id, 'newer');
+});
+
+test('便携备份可无损导出并重新导入', () => {
+  const state = { tasks: [{ id: 'portable-task', title: '完成一次兑现' }], events: [] };
+  const backup = createPortableBackup(state, () => 0);
+  state.tasks[0].title = 'later-change';
+  assert.equal(backup.product, 'today-fulfillment');
+  assert.equal(backup.exportedAt, '1970-01-01T00:00:00.000Z');
+  assert.equal(parsePortableBackup(JSON.stringify(backup)).tasks[0].title, '完成一次兑现');
+});
+
+test('便携备份拒绝其他产品与损坏文件', () => {
+  assert.equal(parsePortableBackup('{broken'), null);
+  assert.equal(parsePortableBackup(JSON.stringify({ product: 'another-product', data: { tasks: [] } })), null);
+  assert.equal(parsePortableBackup(JSON.stringify({ product: 'today-fulfillment', data: { events: [] } })), null);
 });

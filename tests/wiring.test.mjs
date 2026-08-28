@@ -130,7 +130,7 @@ test('我的页面提供可访问的飞书问题反馈入口', () => {
   assert.match(html, /ionic\/svg\/chevron-forward\.svg/);
   assert.match(styles, /\.settings-link \{[\s\S]*min-height:72px;/);
   assert.match(styles, /\.settings-link:focus-visible/);
-  assert.match(worker, /today-fulfillment-v28/);
+  assert.match(worker, /today-fulfillment-v29/);
   assert.match(worker, /ionic\/svg\/chatbubble-ellipses-outline\.svg/);
   assert.match(worker, /ionic\/svg\/chevron-forward\.svg/);
 });
@@ -147,5 +147,33 @@ test('51.LA 统计遵循隐私开关并只记录每日首次兑现', () => {
   assert.match(analytics, /autoTrack: true/);
   assert.match(analytics, /hostname === PRODUCTION_HOST/);
   assert.match(build, /'analytics\.js'/);
-  assert.match(worker, /analytics\.js\?v=28/);
+  assert.match(worker, /analytics\.js\?v=29/);
+});
+
+test('高优先级体验优化覆盖首次理解、快速开始与核心行为状态', () => {
+  assert.match(html, /id="onboarding-dialog"/);
+  assert.match(html, /完成一件，就是一次兑现/);
+  assert.match(html, /id="daily-goal-status"/);
+  assert.match(html, /data-quick-duration="25"/);
+  assert.match(html, /id="save-start-task-button"/);
+  assert.match(app, /saveTaskFromForm\(event\.submitter\?\.dataset\.saveMode === 'start'\)/);
+  assert.match(app, /dailyGoalAchieved = completed > 0/);
+  assert.match(app, /shouldShowOnboarding = !restored\.found/);
+});
+
+test('专注异常处理渐进展开且完成反馈不再自动弹出奖励', () => {
+  assert.match(html, /class="focus-more"/);
+  assert.match(html, /短暂休息/);
+  assert.match(html, /遇到突发情况/);
+  assert.match(app, /pendingRewardTaskIds/);
+  assert.doesNotMatch(app, /celebrate\(task\); openRewardDialog\(task\)/);
+  assert.match(app, /data-claim-pending-reward/);
+});
+
+test('我的页面明确提醒边界并提供本地数据导入导出', () => {
+  assert.match(html, /提醒并非闹钟/);
+  assert.match(html, /id="export-backup"/);
+  assert.match(html, /id="import-backup-file"/);
+  assert.match(app, /createPortableBackup\(state\)/);
+  assert.match(app, /parsePortableBackup\(await file\.text\(\)\)/);
 });
