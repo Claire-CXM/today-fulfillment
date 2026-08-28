@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [app, html, worker, styles, build, design] = await Promise.all([
+const [app, analytics, html, worker, styles, build, design] = await Promise.all([
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
+  readFile(new URL('../analytics.js', import.meta.url), 'utf8'),
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../sw.js', import.meta.url), 'utf8'),
   readFile(new URL('../styles.css', import.meta.url), 'utf8'),
@@ -116,4 +117,32 @@ test('最终交互细节使用正式方向图标与可访问触控尺寸', () =>
   assert.match(styles, /summary:focus-visible/);
   assert.match(styles, /\.icon-button \{ width:44px; height:44px; \}/);
   assert.match(styles, /\.node-remove \{ width:44px; height:44px;/);
+});
+
+test('我的页面提供可访问的飞书问题反馈入口', () => {
+  assert.match(html, /class="settings-link feedback-link"/);
+  assert.match(html, /href="https:\/\/pcngz2vyw6hl\.feishu\.cn\/share\/base\/shrcnIy3JQYSGIynAsv46tx0d1b"/);
+  assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+  assert.match(html, /aria-label="问题反馈：告诉我们你的体验与建议（在新标签页打开）"/);
+  assert.match(html, /ionic\/svg\/chatbubble-ellipses-outline\.svg/);
+  assert.match(html, /ionic\/svg\/chevron-forward\.svg/);
+  assert.match(styles, /\.settings-link \{[\s\S]*min-height:72px;/);
+  assert.match(styles, /\.settings-link:focus-visible/);
+  assert.match(worker, /today-fulfillment-v27/);
+  assert.match(worker, /ionic\/svg\/chatbubble-ellipses-outline\.svg/);
+  assert.match(worker, /ionic\/svg\/chevron-forward\.svg/);
+});
+
+test('51.LA 统计遵循隐私开关并只记录每日首次兑现', () => {
+  assert.match(html, /id="usage-analytics" type="checkbox" role="switch"/);
+  assert.match(html, /aria-describedby="analytics-description"/);
+  assert.match(app, /usageAnalytics: \$\('#usage-analytics'\)/);
+  assert.match(app, /configureAnalytics\(state\.settings\.usageAnalytics\)/);
+  assert.match(app, /shouldTrackDailyFulfillment\(state\.analytics\.lastFulfillmentDate, task\.actualCompletedDate\)/);
+  assert.match(app, /trackAnalyticsEvent\('daily_fulfillment_achieved'/);
+  assert.doesNotMatch(analytics, /taskTitle|task\.title|taskId|contact/);
+  assert.match(analytics, /autoTrack: true/);
+  assert.match(analytics, /hostname === PRODUCTION_HOST/);
+  assert.match(build, /'analytics\.js'/);
+  assert.match(worker, /analytics\.js\?v=27/);
 });

@@ -17,8 +17,9 @@ import {
   sortTasksForDisplay,
   taskProgress,
   warningMinutes
-} from './logic.js?v=14';
-import { flushPersistedState, loadPersistedState, requestPersistentStorage, savePersistedState } from './storage.js?v=14';
+} from './logic.js?v=27';
+import { flushPersistedState, loadPersistedState, requestPersistentStorage, savePersistedState } from './storage.js?v=27';
+import { configureAnalytics, durationBucket, shouldTrackDailyFulfillment, trackAnalyticsEvent } from './analytics.js?v=27';
 
 defineCustomElements(window);
 
@@ -48,7 +49,7 @@ const els = {
   taskList: $('#task-list'), taskForm: $('#task-form'), title: $('#task-title'), duration: $('#task-duration'), formMessage: $('#form-message'), taskCount: $('#task-count'), dailyScore: $('#daily-score'), dailyJourney: $('#daily-journey'), dailyPathFill: $('#daily-path-fill'), dailyPathCaption: $('#daily-path-caption'), dailyNote: $('#daily-note'), todayButton: $('#today-button'), openCreateTask: $('#open-create-task'), closeTaskEditor: $('#close-task-editor'), cancelTaskEditor: $('#cancel-task-editor'), taskEditorEyebrow: $('#task-editor-eyebrow'), taskEditorHeading: $('#task-editor-heading'), saveTaskButton: $('#save-task-button'), durationHint: $('#duration-hint'), suggestionCard: $('#suggestion-card'), suggestionList: $('#suggestion-list'), shuffleSuggestions: $('#shuffle-suggestions'), publishAllSuggestions: $('#publish-all-suggestions'), todayStageCard: $('#today-stage-card'),
   focusTitle: $('#focus-title'), focusState: $('#focus-state'), timer: $('#timer'), focusProgress: $('#focus-progress'), focusProgressBar: $('#focus-progress-bar'), focusNodeList: $('#focus-node-list'), pauseButton: $('#pause-button'), finishButton: $('#finish-button'), interruptButton: $('#interrupt-button'), pauseHint: $('#pause-hint'), leaveFocus: $('#leave-focus'), floatTimerButton: $('#float-timer-button'), miniFocusBar: $('#mini-focus-bar'), miniFocusTitle: $('#mini-focus-title'), miniFocusTime: $('#mini-focus-time'),
   monthCalendar: $('#month-calendar'), monthLabel: $('#month-label'), previousMonth: $('#previous-month'), nextMonth: $('#next-month'), dayDetail: $('#day-detail'), freeDayCount: $('#free-day-count'), freeDayDate: $('#free-day-date'), useFreeDay: $('#use-free-day'), summaryFocus: $('#summary-focus'), summaryPauses: $('#summary-pauses'), summaryProgress: $('#summary-progress'), abandonNote: $('#abandon-note'), dailyReport: $('#daily-report'), monthlyReport: $('#monthly-report'),
-  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), testNotification: $('#test-notification'), reminderDiagnostics: $('#reminder-diagnostics'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'),
+  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), usageAnalytics: $('#usage-analytics'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), testNotification: $('#test-notification'), reminderDiagnostics: $('#reminder-diagnostics'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'),
   warningDialog: $('#warning-dialog'), warningTitle: $('#warning-title'), warningCopy: $('#warning-copy'), warningContinue: $('#warning-continue'), rewardDialog: $('#reward-dialog'), rewardTaskName: $('#reward-task-name'), rewardOptions: $('#reward-options'), shuffleRewards: $('#shuffle-rewards'), claimReward: $('#claim-reward'), penaltyDialog: $('#penalty-dialog'), penaltyTitle: $('#penalty-title'), penaltyTrigger: $('#penalty-trigger'), penaltyContent: $('#penalty-content'), penaltyLater: $('#penalty-later'), penaltyDone: $('#penalty-done'), appealDialog: $('#appeal-dialog'), appealForm: $('#appeal-form'), appealReason: $('#appeal-reason'), appealHonesty: $('#appeal-honesty'), appealClose: $('#appeal-close'), appealResult: $('#appeal-result'), interruptDialog: $('#interrupt-dialog'), interruptForm: $('#interrupt-form'), interruptReason: $('#interrupt-reason'), interruptClose: $('#interrupt-close'), confirmDialog: $('#confirm-dialog'), confirmTitle: $('#confirm-title'), confirmMessage: $('#confirm-message'), confirmCancel: $('#confirm-cancel'), confirmAccept: $('#confirm-accept'), ionicAlert: $('#ionic-alert'), celebration: $('#celebration'), todayNavBadge: $('#today-nav-badge'), toast: $('#toast'), nodeDialog: $('#node-dialog'), nodeDialogTitle: $('#node-dialog-title'), nodeForm: $('#node-form'), nodeList: $('#node-list'), nodeAllocation: $('#node-allocation'), addNodeButton: $('#add-node-button'), smartSplitButton: $('#smart-split-button'), abandonFocusButton: $('#abandon-focus-button')
 };
 
@@ -74,7 +75,7 @@ let pipTimeElement = null;
 function dateKey(date = new Date()) { const offset = date.getTimezoneOffset() * 60000; return new Date(date - offset).toISOString().slice(0, 10); }
 function localDate(date = new Date()) { return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(date); }
 function uid() { return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`; }
-function freshState() { return { tasks: [], events: [], rewards: DEFAULT_REWARDS.map(content => ({ id: uid(), content })), punishments: DEFAULT_PUNISHMENTS.map(content => ({ id: uid(), content })), claimedRewards: [], penaltyRecords: [], freeDays: [], stageRewardsUnlocked: [], reminderDeliveries: [], reminderDiagnostics: { lastCheckedAt: null, lastResult: 'never', lastDeliveredAt: null, lastError: null, nextScheduledAt: null, backgroundMode: 'foreground_only', backgroundError: null }, monthlyReports: [], settings: { promptStyle: 'gentle', guiltCopy: false, reduceMotion: false, reminderTime: '10:00' } }; }
+function freshState() { return { tasks: [], events: [], rewards: DEFAULT_REWARDS.map(content => ({ id: uid(), content })), punishments: DEFAULT_PUNISHMENTS.map(content => ({ id: uid(), content })), claimedRewards: [], penaltyRecords: [], freeDays: [], stageRewardsUnlocked: [], reminderDeliveries: [], reminderDiagnostics: { lastCheckedAt: null, lastResult: 'never', lastDeliveredAt: null, lastError: null, nextScheduledAt: null, backgroundMode: 'foreground_only', backgroundError: null }, monthlyReports: [], analytics: { lastFulfillmentDate: null }, settings: { promptStyle: 'gentle', guiltCopy: false, reduceMotion: false, usageAnalytics: true, reminderTime: '10:00' } }; }
 function normalizeState(persisted) {
     const parsed = persisted && Array.isArray(persisted.tasks) ? persisted : freshState();
     const defaults = freshState();
@@ -88,6 +89,7 @@ function normalizeState(persisted) {
     parsed.reminderDeliveries ||= [];
     parsed.reminderDiagnostics = { ...defaults.reminderDiagnostics, ...(parsed.reminderDiagnostics || {}) };
     parsed.monthlyReports ||= [];
+    parsed.analytics = { ...defaults.analytics, ...(parsed.analytics || {}) };
     parsed.settings = { ...defaults.settings, ...(parsed.settings || {}) };
     parsed.tasks.forEach(task => {
       task.nodes ||= [];
@@ -275,6 +277,7 @@ function renderPreferences() {
   els.promptStyle.value = state.settings.promptStyle;
   els.guiltCopy.checked = state.settings.guiltCopy;
   els.reduceMotion.checked = state.settings.reduceMotion;
+  els.usageAnalytics.checked = state.settings.usageAnalytics;
   els.reminderTime.value = state.settings.reminderTime;
   if (!('Notification' in window)) {
     els.notificationStatus.textContent = '当前浏览器不支持通知';
@@ -327,8 +330,21 @@ async function completeTask(task, madeUp = false) {
   }
   if (task.status === 'in_progress') updateRunningTask(task);
   if (task.status === 'paused') task.pauseUsedSeconds = effectivePauseSeconds(task);
+  const completionSource = currentView;
   task.status = 'completed'; task.remainingSeconds = 0; task.manualProgress = 100; task.actualCompletedDate = dateKey();
-  addEvent(madeUp ? 'made_up' : 'completed', task, { actualCompletedDate: task.actualCompletedDate }); saveState(); render();
+  addEvent(madeUp ? 'made_up' : 'completed', task, { actualCompletedDate: task.actualCompletedDate }); saveState();
+  if (shouldTrackDailyFulfillment(state.analytics.lastFulfillmentDate, task.actualCompletedDate)) {
+    const accepted = trackAnalyticsEvent('daily_fulfillment_achieved', {
+      completion_mode: madeUp ? 'makeup' : 'standard',
+      source_view: completionSource,
+      has_nodes: task.nodes.length ? 'yes' : 'no',
+      planned_duration_bucket: durationBucket(task.plannedMinutes),
+      focus_duration_bucket: durationBucket(taskElapsed(task) / 60),
+      app_version: 'v27'
+    });
+    if (accepted) { state.analytics.lastFulfillmentDate = task.actualCompletedDate; saveState(); }
+  }
+  render();
   if (currentView === 'focus') switchView('today');
   closeTimerFloat(); celebrate(task); openRewardDialog(task); checkStageRewards(); toast(madeUp ? '补做完成，原计划日期已更新为绿钩。' : '任务完成！你做到了，今天的努力算数。');
 }
@@ -551,6 +567,18 @@ els.useFreeDay.addEventListener('click', () => {
 els.promptStyle.addEventListener('change', () => { state.settings.promptStyle = els.promptStyle.value; saveState(); });
 els.guiltCopy.addEventListener('change', () => { state.settings.guiltCopy = els.guiltCopy.checked; saveState(); });
 els.reduceMotion.addEventListener('change', () => { state.settings.reduceMotion = els.reduceMotion.checked; saveState(); renderPreferences(); });
+els.usageAnalytics.addEventListener('change', () => {
+  state.settings.usageAnalytics = els.usageAnalytics.checked;
+  saveState();
+  configureAnalytics(state.settings.usageAnalytics);
+  if (state.settings.usageAnalytics) {
+    toast('匿名使用统计已开启。');
+  } else {
+    const analyticsWasLoaded = Boolean(document.getElementById('LA_COLLECT'));
+    toast('匿名使用统计已关闭，后续打开时不会加载统计服务。');
+    if (analyticsWasLoaded) setTimeout(() => window.location.reload(), 500);
+  }
+});
 els.reminderTime.addEventListener('change', () => { state.settings.reminderTime = els.reminderTime.value || '10:00'; saveState(); checkReminderDelivery('setting_changed'); scheduleReminderCheck(); toast(`每日提醒时间已设为 ${state.settings.reminderTime}。`); });
 els.notificationPermission.addEventListener('click', requestNotificationAccess);
 els.testNotification.addEventListener('click', testNotificationDelivery);
@@ -602,6 +630,7 @@ async function initializeApp() {
   render();
   switchView(currentView);
   document.body.classList.remove('app-loading');
+  configureAnalytics(state.settings.usageAnalytics);
   if (focusTask()) startTicker();
   if (restored.recovered) setTimeout(() => toast('已从本地安全备份恢复全部数据。'), 150);
   requestPersistentStorage();

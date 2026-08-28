@@ -695,3 +695,86 @@ summary:focus-visible {
 @media (max-width:360px) {
   .node-line { grid-template-columns:22px minmax(0,1fr) 44px; }
 }
+
+/* V26: feedback entry */
+.settings-card > div,
+.settings-link {
+  border-bottom:1px solid var(--v3-line);
+}
+.settings-card > div:last-of-type { border-bottom:1px solid var(--v3-line); }
+.settings-link {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:72px;
+  margin:0 -8px;
+  padding:10px 8px;
+  border-bottom:0;
+  border-radius:16px;
+  color:var(--v3-ink);
+  text-decoration:none;
+  transition:background-color .18s ease, transform .18s ease;
+}
+.settings-link-icon {
+  display:grid;
+  flex:0 0 42px;
+  width:42px;
+  height:42px;
+  place-items:center;
+  border-radius:15px;
+  background:var(--v3-mint);
+}
+.settings-link-icon img {
+  width:23px;
+  height:23px;
+  filter:invert(51%) sepia(64%) saturate(723%) hue-rotate(111deg) brightness(88%);
+}
+.settings-link-copy {
+  display:grid;
+  flex:1 1 auto;
+  gap:3px;
+  min-width:0;
+}
+.settings-link-copy strong { color:var(--v3-ink); font-size:15px; line-height:1.4; }
+.settings-link-copy small { color:var(--v3-muted); font-size:12px; line-height:1.5; }
+.settings-link-arrow {
+  flex:0 0 20px;
+  width:20px;
+  height:20px;
+  filter:invert(50%) sepia(9%) saturate(492%) hue-rotate(115deg) brightness(94%);
+}
+.settings-link:hover { background:#f3faf6; }
+.settings-link:active { transform:scale(.99); }
+.settings-link:focus-visible {
+  outline:2px solid var(--v3-brand);
+  outline-offset:2px;
+  background:#f3faf6;
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .settings-link { transition:none; }
+}
+
+/* V27: privacy-aware anonymous analytics */
+.analytics-preference-card { gap:10px; }
+.analytics-switch-row { min-height:64px; }
+.analytics-switch-row > span { min-width:0; }
+.analytics-switch-row input {
+  flex:0 0 44px;
+  width:44px;
+  min-width:44px;
+}
+.analytics-switch-row input:focus-visible {
+  outline:2px solid var(--v3-brand);
+  outline-offset:4px;
+  box-shadow:0 0 0 4px rgba(23,168,121,.14);
+}
+.analytics-privacy-note {
+  margin:0;
+  padding:12px 14px;
+  border-radius:16px;
+  color:var(--v3-muted);
+  background:#eef8f3;
+  font-size:12px;
+  line-height:1.65;
+}

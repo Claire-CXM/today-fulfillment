@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icon.svg" />
     <link rel="stylesheet" href="node_modules/@ionic/core/css/ionic.bundle.css" />
-    <link rel="stylesheet" href="styles.css?v=25" />
+    <link rel="stylesheet" href="styles.css?v=27" />
     <title>今日兑现</title>
   </head>
   <body data-view="today">
@@ -132,10 +132,20 @@
           <div class="profile-mark"><img src="assets/growth-badge.png" alt="成长徽章"></div>
           <div><p class="eyebrow">当前身份</p><h2>本地体验用户</h2><p>无需登录即可使用 P1 核心功能</p></div>
         </section>
-        <section class="settings-card" aria-label="应用信息">
+        <section class="settings-card" aria-label="应用设置与信息">
           <div><span>数据存储</span><strong>本机双重备份</strong></div>
           <div><span>当前阶段</span><strong>P1</strong></div>
           <div><span>PWA 状态</span><strong>支持安装</strong></div>
+          <a class="settings-link feedback-link" href="https://pcngz2vyw6hl.feishu.cn/share/base/shrcnIy3JQYSGIynAsv46tx0d1b" target="_blank" rel="noopener noreferrer" aria-label="问题反馈：告诉我们你的体验与建议（在新标签页打开）">
+            <span class="settings-link-icon" aria-hidden="true"><img src="node_modules/@ionic/core/dist/ionic/svg/chatbubble-ellipses-outline.svg" alt=""></span>
+            <span class="settings-link-copy"><strong>问题反馈</strong><small>告诉我们你的体验与建议</small></span>
+            <img class="settings-link-arrow" src="node_modules/@ionic/core/dist/ionic/svg/chevron-forward.svg" alt="" aria-hidden="true">
+          </a>
+        </section>
+        <section class="preference-card analytics-preference-card" aria-labelledby="analytics-heading">
+          <div class="section-heading compact"><div><p class="eyebrow">数据与隐私</p><h2 id="analytics-heading">匿名使用统计</h2></div></div>
+          <label class="switch-row analytics-switch-row"><span><strong>使用数据统计</strong><small id="analytics-description">帮助我们了解有多少用户完成一次兑现；不会上传任务内容或联系方式</small></span><input id="usage-analytics" type="checkbox" role="switch" aria-describedby="analytics-description" checked></label>
+          <p class="analytics-privacy-note">统计由 51.LA 提供。你可以随时关闭；关闭后不再发送使用事件，之后打开产品时也不会加载统计服务。</p>
         </section>
         <section class="preference-card">
           <div class="section-heading compact"><div><p class="eyebrow">督促偏好</p><h2>让提醒有用，也有分寸</h2></div></div>
@@ -167,6 +177,6 @@
     <ion-alert id="ionic-alert"></ion-alert>
     <div class="celebration" id="celebration" hidden aria-hidden="true"><div class="celebration-card"><img src="assets/growth-badge.png" alt=""><strong>兑现成功</strong><span>这一件事，已经认真完成。</span></div></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=25"></script>
+  <script type="module" src="app.js?v=27"></script>
   </body>
 </html>
