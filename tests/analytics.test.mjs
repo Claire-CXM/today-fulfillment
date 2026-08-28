@@ -6,7 +6,7 @@ test('匿名统计只在正式生产域名启用', async () => {
   assert.equal(isAnalyticsHost('today-fulfillment.netlify.app'), true);
   assert.equal(isAnalyticsHost('localhost'), false);
   assert.equal(await configureAnalytics(true, 'localhost'), false);
-  assert.equal(trackAnalyticsEvent('daily_fulfillment_achieved', {}, 'localhost'), false);
+  assert.equal(await trackAnalyticsEvent('daily_fulfillment_achieved', {}, 'localhost'), false);
 });
 
 test('时长只上报低敏感度区间值', () => {
@@ -21,7 +21,21 @@ test('时长只上报低敏感度区间值', () => {
 
 test('关闭授权后事件上报立即变为无操作', async () => {
   await configureAnalytics(false, 'today-fulfillment.netlify.app');
-  assert.equal(trackAnalyticsEvent('daily_fulfillment_achieved', {}, 'today-fulfillment.netlify.app'), false);
+  assert.equal(await trackAnalyticsEvent('daily_fulfillment_achieved', {}, 'today-fulfillment.netlify.app'), false);
+});
+
+test('只有事件 SDK 实际接手事件后才确认上报成功', async () => {
+  const originalLA = globalThis.LA;
+  const received = [];
+  globalThis.LA = { init() {}, track(name, properties) { received.push({ name, properties }); } };
+  await configureAnalytics(true, 'today-fulfillment.netlify.app');
+  assert.equal(await trackAnalyticsEvent('daily_fulfillment_achieved', { app_version: 'v28' }, 'today-fulfillment.netlify.app'), true);
+  assert.deepEqual(received, [{ name: 'daily_fulfillment_achieved', properties: { app_version: 'v28' } }]);
+  globalThis.LA.track = () => { throw new Error('event sdk unavailable'); };
+  assert.equal(await trackAnalyticsEvent('daily_fulfillment_achieved', {}, 'today-fulfillment.netlify.app'), false);
+  await configureAnalytics(false, 'today-fulfillment.netlify.app');
+  if (originalLA === undefined) delete globalThis.LA;
+  else globalThis.LA = originalLA;
 });
 
 test('同一自然日只接受首次完成兑现', () => {

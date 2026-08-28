@@ -74,8 +74,10 @@ test('原生页面滚动不受 Ionic 全局 body 锁定影响', () => {
   assert.match(styles, /body \{ position:static;[\s\S]*overflow-y:auto;[\s\S]*touch-action:pan-y;/);
 });
 
-test('图二视觉资产、真实导航图标与构建产物保持完整', () => {
-  assert.match(design, /图二/);
+test('设计规范中的视觉资产、真实导航图标与构建产物保持完整', () => {
+  assert.match(design, /assets\/title-leaf-flourish\.png/);
+  assert.match(design, /assets\/journey-stones-v3\.png/);
+  assert.match(design, /assets\/growth-badge\.png/);
   assert.match(html, /assets\/journey-stones-v3\.png/);
   assert.match(app, /assets\/growth-badge\.png/);
   assert.match(html, /assets\/icons\/home-outline\.svg/);
@@ -128,7 +130,7 @@ test('我的页面提供可访问的飞书问题反馈入口', () => {
   assert.match(html, /ionic\/svg\/chevron-forward\.svg/);
   assert.match(styles, /\.settings-link \{[\s\S]*min-height:72px;/);
   assert.match(styles, /\.settings-link:focus-visible/);
-  assert.match(worker, /today-fulfillment-v27/);
+  assert.match(worker, /today-fulfillment-v28/);
   assert.match(worker, /ionic\/svg\/chatbubble-ellipses-outline\.svg/);
   assert.match(worker, /ionic\/svg\/chevron-forward\.svg/);
 });
@@ -139,10 +141,11 @@ test('51.LA 统计遵循隐私开关并只记录每日首次兑现', () => {
   assert.match(app, /usageAnalytics: \$\('#usage-analytics'\)/);
   assert.match(app, /configureAnalytics\(state\.settings\.usageAnalytics\)/);
   assert.match(app, /shouldTrackDailyFulfillment\(state\.analytics\.lastFulfillmentDate, task\.actualCompletedDate\)/);
-  assert.match(app, /trackAnalyticsEvent\('daily_fulfillment_achieved'/);
+  assert.match(app, /void trackAnalyticsEvent\('daily_fulfillment_achieved'/);
+  assert.match(app, /\)\.then\(delivered =>/);
   assert.doesNotMatch(analytics, /taskTitle|task\.title|taskId|contact/);
   assert.match(analytics, /autoTrack: true/);
   assert.match(analytics, /hostname === PRODUCTION_HOST/);
   assert.match(build, /'analytics\.js'/);
-  assert.match(worker, /analytics\.js\?v=27/);
+  assert.match(worker, /analytics\.js\?v=28/);
 });

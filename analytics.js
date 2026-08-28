@@ -29,20 +29,32 @@ function flushPendingEvents() {
   if (!consentEnabled || typeof globalThis.LA?.track !== 'function') return false;
   while (pendingEvents.length) {
     const event = pendingEvents.shift();
-    try { globalThis.LA.track(event.name, event.properties); } catch { /* Analytics must never interrupt the product. */ }
+    try {
+      globalThis.LA.track(event.name, event.properties);
+      event.resolve(true);
+    } catch {
+      event.resolve(false);
+    }
   }
   return true;
 }
 
+function settlePendingEvents(result) {
+  while (pendingEvents.length) pendingEvents.shift().resolve(result);
+}
+
 function waitForEventSdk() {
-  if (readinessTimer || flushPendingEvents()) return;
+  if (readinessTimer || typeof globalThis.LA?.track === 'function') {
+    flushPendingEvents();
+    return;
+  }
   let attempts = 0;
   readinessTimer = globalThis.setInterval?.(() => {
     attempts += 1;
     if (flushPendingEvents() || attempts >= 100 || !consentEnabled) {
       globalThis.clearInterval?.(readinessTimer);
       readinessTimer = null;
-      if (attempts >= 100) pendingEvents.length = 0;
+      if (attempts >= 100 || !consentEnabled) settlePendingEvents(false);
     }
   }, 100);
 }
@@ -64,7 +76,7 @@ function loadSdk() {
     if (!script) { resolve(false); return; }
     const finish = () => resolve(initializeSdk());
     script.addEventListener('load', finish, { once: true });
-    script.addEventListener('error', () => resolve(false), { once: true });
+    script.addEventListener('error', () => { settlePendingEvents(false); resolve(false); }, { once: true });
     if (!existing) {
       script.id = SCRIPT_ID;
       script.charset = 'UTF-8';
@@ -79,7 +91,7 @@ function loadSdk() {
 export function configureAnalytics(enabled, hostname = globalThis.location?.hostname || '') {
   consentEnabled = Boolean(enabled);
   if (!consentEnabled) {
-    pendingEvents.length = 0;
+    settlePendingEvents(false);
     if (readinessTimer) {
       globalThis.clearInterval?.(readinessTimer);
       readinessTimer = null;
@@ -91,8 +103,9 @@ export function configureAnalytics(enabled, hostname = globalThis.location?.host
 }
 
 export function trackAnalyticsEvent(name, properties = {}, hostname = globalThis.location?.hostname || '') {
-  if (!consentEnabled || !isAnalyticsHost(hostname)) return false;
-  pendingEvents.push({ name, properties });
-  if (!flushPendingEvents()) waitForEventSdk();
-  return true;
+  if (!consentEnabled || !isAnalyticsHost(hostname)) return Promise.resolve(false);
+  return new Promise(resolve => {
+    pendingEvents.push({ name, properties, resolve });
+    if (!flushPendingEvents()) waitForEventSdk();
+  });
 }

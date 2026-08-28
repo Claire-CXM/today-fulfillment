@@ -17,9 +17,9 @@ import {
   sortTasksForDisplay,
   taskProgress,
   warningMinutes
-} from './logic.js?v=27';
-import { flushPersistedState, loadPersistedState, requestPersistentStorage, savePersistedState } from './storage.js?v=27';
-import { configureAnalytics, durationBucket, shouldTrackDailyFulfillment, trackAnalyticsEvent } from './analytics.js?v=27';
+} from './logic.js?v=28';
+import { flushPersistedState, loadPersistedState, requestPersistentStorage, savePersistedState } from './storage.js?v=28';
+import { configureAnalytics, durationBucket, shouldTrackDailyFulfillment, trackAnalyticsEvent } from './analytics.js?v=28';
 
 defineCustomElements(window);
 
@@ -71,6 +71,7 @@ let durationUnit = 'minutes';
 let confirmResolver = null;
 let pipWindow = null;
 let pipTimeElement = null;
+let pendingFulfillmentTrackingDate = null;
 
 function dateKey(date = new Date()) { const offset = date.getTimezoneOffset() * 60000; return new Date(date - offset).toISOString().slice(0, 10); }
 function localDate(date = new Date()) { return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(date); }
@@ -333,16 +334,22 @@ async function completeTask(task, madeUp = false) {
   const completionSource = currentView;
   task.status = 'completed'; task.remainingSeconds = 0; task.manualProgress = 100; task.actualCompletedDate = dateKey();
   addEvent(madeUp ? 'made_up' : 'completed', task, { actualCompletedDate: task.actualCompletedDate }); saveState();
-  if (shouldTrackDailyFulfillment(state.analytics.lastFulfillmentDate, task.actualCompletedDate)) {
-    const accepted = trackAnalyticsEvent('daily_fulfillment_achieved', {
+  if (shouldTrackDailyFulfillment(state.analytics.lastFulfillmentDate, task.actualCompletedDate) && pendingFulfillmentTrackingDate !== task.actualCompletedDate) {
+    pendingFulfillmentTrackingDate = task.actualCompletedDate;
+    void trackAnalyticsEvent('daily_fulfillment_achieved', {
       completion_mode: madeUp ? 'makeup' : 'standard',
       source_view: completionSource,
       has_nodes: task.nodes.length ? 'yes' : 'no',
       planned_duration_bucket: durationBucket(task.plannedMinutes),
       focus_duration_bucket: durationBucket(taskElapsed(task) / 60),
-      app_version: 'v27'
+      app_version: 'v28'
+    }).then(delivered => {
+      if (delivered) {
+        state.analytics.lastFulfillmentDate = task.actualCompletedDate;
+        saveState();
+      }
+      pendingFulfillmentTrackingDate = null;
     });
-    if (accepted) { state.analytics.lastFulfillmentDate = task.actualCompletedDate; saveState(); }
   }
   render();
   if (currentView === 'focus') switchView('today');
