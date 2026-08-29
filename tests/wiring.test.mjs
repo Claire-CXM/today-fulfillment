@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [app, analytics, html, worker, styles, build, design] = await Promise.all([
+const [app, analytics, cloudSync, supabaseClient, html, worker, styles, build, design] = await Promise.all([
   readFile(new URL('../app.js', import.meta.url), 'utf8'),
   readFile(new URL('../analytics.js', import.meta.url), 'utf8'),
+  readFile(new URL('../cloud-sync.js', import.meta.url), 'utf8'),
+  readFile(new URL('../supabase-client.js', import.meta.url), 'utf8'),
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../sw.js', import.meta.url), 'utf8'),
   readFile(new URL('../styles.css', import.meta.url), 'utf8'),
@@ -17,7 +19,8 @@ test('任务表单把当前时长单位传入真实换算函数', () => {
 });
 
 test('底部导航由应用事件统一驱动且不依赖内联脚本', () => {
-  assert.match(app, /querySelectorAll\('\.nav-item'\).*switchView\(button\.dataset\.target\)/);
+  assert.match(app, /els\.bottomNav\.addEventListener\('click'/);
+  assert.match(app, /switchView\(button\.dataset\.target\)/);
   assert.doesNotMatch(html, /onclick=/);
 });
 
@@ -67,6 +70,15 @@ test('页面与 Service Worker 使用一致的资源版本', () => {
   assert.match(worker, new RegExp(`styles\\.css\\?v=${styleVersion}`));
   assert.match(worker, new RegExp(`logic\\.js\\?v=${appVersion}`));
   assert.match(worker, new RegExp(`storage\\.js\\?v=${appVersion}`));
+  assert.match(worker, new RegExp(`cloud-sync\\.js\\?v=${appVersion}`));
+  assert.match(worker, new RegExp(`supabase-client\\.js\\?v=${appVersion}`));
+});
+
+test('离线启动优先读取版本化资源且不依赖未缓存的 Ionic 模块链', () => {
+  assert.doesNotMatch(app, /@ionic\/core\/loader/);
+  assert.match(worker, /event\.request\.mode !== 'navigate' && cached/);
+  assert.match(worker, /await cache\.put\(event\.request, response\.clone\(\)\)/);
+  assert.match(worker, /if \(cached\) return cached;/);
 });
 
 test('原生页面滚动不受 Ionic 全局 body 锁定影响', () => {
@@ -88,6 +100,12 @@ test('设计规范中的视觉资产、真实导航图标与构建产物保持�
 test('主导航切页回到顶部且悬浮导航不受 body 变换影响', () => {
   assert.match(app, /window\.scrollTo\(\{ top: 0, left: 0, behavior: 'instant' \}\)/);
   assert.match(styles, /body \{ transform:none !important; \}/);
+  assert.match(app, /els\.bottomNav\.addEventListener\('click'/);
+  assert.match(app, /event\.target\.closest\('\.nav-item\[data-target\]'\)/);
+  assert.doesNotMatch(app, /querySelectorAll\('\.nav-item'\)\.forEach\(button => button\.addEventListener/);
+  assert.match(styles, /\.bottom-nav \{ z-index:30;[\s\S]*pointer-events:auto;/);
+  assert.match(styles, /\.nav-item \{ z-index:1;[\s\S]*touch-action:manipulation;/);
+  assert.match(styles, /\.nav-item>\* \{ pointer-events:none; \}/);
 });
 
 test('子页隐藏主导航并统一使用品牌确认弹窗与真实图标资产', () => {
@@ -130,7 +148,7 @@ test('我的页面提供可访问的飞书问题反馈入口', () => {
   assert.match(html, /ionic\/svg\/chevron-forward\.svg/);
   assert.match(styles, /\.settings-link \{[\s\S]*min-height:72px;/);
   assert.match(styles, /\.settings-link:focus-visible/);
-  assert.match(worker, /today-fulfillment-v29/);
+  assert.match(worker, /today-fulfillment-v35/);
   assert.match(worker, /ionic\/svg\/chatbubble-ellipses-outline\.svg/);
   assert.match(worker, /ionic\/svg\/chevron-forward\.svg/);
 });
@@ -147,7 +165,7 @@ test('51.LA 统计遵循隐私开关并只记录每日首次兑现', () => {
   assert.match(analytics, /autoTrack: true/);
   assert.match(analytics, /hostname === PRODUCTION_HOST/);
   assert.match(build, /'analytics\.js'/);
-  assert.match(worker, /analytics\.js\?v=29/);
+  assert.match(worker, /analytics\.js\?v=35/);
 });
 
 test('高优先级体验优化覆盖首次理解、快速开始与核心行为状态', () => {
@@ -176,4 +194,36 @@ test('我的页面明确提醒边界并提供本地数据导入导出', () => {
   assert.match(html, /id="import-backup-file"/);
   assert.match(app, /createPortableBackup\(state\)/);
   assert.match(app, /parsePortableBackup\(await file\.text\(\)\)/);
+});
+
+test('v1.1 账户、密码恢复和显式数据选择流程已接入', () => {
+  assert.match(html, /id="open-login"/);
+  assert.match(html, /id="open-register"/);
+  assert.match(html, /id="resend-confirmation"/);
+  assert.match(html, /id="password-reset-form"/);
+  assert.match(html, /id="new-password-form"/);
+  assert.match(html, /id="sync-choice-cloud"/);
+  assert.match(html, /保留本机数据并覆盖云端/);
+  assert.match(app, /cloudSync\.resolveDecision\('cloud'\)/);
+  assert.match(app, /cloudSync\.resolveDecision\('local'\)/);
+  assert.match(app, /cloudSync\.resendConfirmation\(email\)/);
+  assert.match(cloudSync, /client\.auth\.resend\(\{ type: 'signup'/);
+  assert.match(cloudSync, /phase: 'action-required'/);
+});
+
+test('专注计时和进入我的页面不会额外触发云同步', () => {
+  assert.match(app, /saveState\(\{ sync: false \}\)/);
+  assert.doesNotMatch(app, /viewName === 'profile'.*cloudSync\?\.syncNow\(\)/);
+  assert.match(app, /今天已自动同步过，下个自然日会继续同步/);
+  assert.match(cloudSync, /debounceMs = 1800/);
+  assert.match(cloudSync, /syncNow\(\{ force: false \}\)/);
+  assert.match(cloudSync, /if \(syncPromise\) return syncPromise/);
+});
+
+test('浏览器只使用 Supabase publishable key 且云同步不进入 51.LA', () => {
+  assert.match(supabaseClient, /sb_publishable_/);
+  assert.doesNotMatch(supabaseClient, /service_role|secret/i);
+  assert.doesNotMatch(analytics, /email|user_snapshots|cloud|snapshot/i);
+  assert.match(build, /@supabase/);
+  assert.match(worker, /@supabase\/supabase-js\/dist\/umd\/supabase\.js/);
 });

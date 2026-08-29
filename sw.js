@@ -1,5 +1,5 @@
-const CACHE = 'today-fulfillment-v29';
-const ASSETS = ['./', './index.html', './styles.css?v=29', './app.js?v=29', './analytics.js?v=29', './logic.js?v=29', './storage.js?v=29', './manifest.webmanifest', './icon.svg', './assets/title-leaf-flourish.png', './assets/journey-stones-v3.png', './assets/growth-badge.png', './assets/icons/add-outline.svg', './assets/icons/home-outline.svg', './assets/icons/calendar-outline.svg', './assets/icons/pie-chart-outline.svg', './assets/icons/trophy-outline.svg', './assets/icons/person-outline.svg', './assets/icons/book-outline.svg', './assets/icons/document-text-outline.svg', './assets/icons/alert-circle-outline.svg', './assets/icons/refresh-circle-outline.svg', './assets/icons/list-outline.svg', './node_modules/@ionic/core/css/ionic.bundle.css', './node_modules/@ionic/core/loader/index.es2017.js', './node_modules/@ionic/core/dist/ionic/svg/close.svg', './node_modules/@ionic/core/dist/ionic/svg/caret-back.svg', './node_modules/@ionic/core/dist/ionic/svg/caret-forward.svg', './node_modules/@ionic/core/dist/ionic/svg/chatbubble-ellipses-outline.svg', './node_modules/@ionic/core/dist/ionic/svg/chevron-forward.svg'];
+const CACHE = 'today-fulfillment-v35';
+const ASSETS = ['./', './index.html', './styles.css?v=35', './app.js?v=35', './analytics.js?v=35', './logic.js?v=35', './storage.js?v=35', './cloud-sync.js?v=35', './supabase-client.js?v=35', './manifest.webmanifest', './icon.svg', './assets/title-leaf-flourish.png', './assets/journey-stones-v3.png', './assets/growth-badge.png', './assets/icons/add-outline.svg', './assets/icons/home-outline.svg', './assets/icons/calendar-outline.svg', './assets/icons/pie-chart-outline.svg', './assets/icons/trophy-outline.svg', './assets/icons/person-outline.svg', './assets/icons/book-outline.svg', './assets/icons/document-text-outline.svg', './assets/icons/alert-circle-outline.svg', './assets/icons/refresh-circle-outline.svg', './assets/icons/list-outline.svg', './node_modules/@ionic/core/css/ionic.bundle.css', './node_modules/@ionic/core/loader/index.es2017.js', './node_modules/@supabase/supabase-js/dist/umd/supabase.js', './node_modules/@ionic/core/dist/ionic/svg/close.svg', './node_modules/@ionic/core/dist/ionic/svg/caret-back.svg', './node_modules/@ionic/core/dist/ionic/svg/caret-forward.svg', './node_modules/@ionic/core/dist/ionic/svg/chatbubble-ellipses-outline.svg', './node_modules/@ionic/core/dist/ionic/svg/chevron-forward.svg'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(Promise.all([
   caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))),
@@ -9,15 +9,22 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
-  event.respondWith(fetch(event.request).then(response => {
-    if (response.ok) caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
-    return response;
-  }).catch(async () => {
+  event.respondWith((async () => {
     const cached = await caches.match(event.request);
-    if (cached) return cached;
-    if (event.request.mode === 'navigate') return caches.match('./index.html');
-    return Response.error();
-  }));
+    if (event.request.mode !== 'navigate' && cached) return cached;
+    try {
+      const response = await fetch(event.request);
+      if (response.ok) {
+        const cache = await caches.open(CACHE);
+        await cache.put(event.request, response.clone());
+      }
+      return response;
+    } catch {
+      if (cached) return cached;
+      if (event.request.mode === 'navigate') return caches.match('./index.html');
+      return Response.error();
+    }
+  })());
 });
 
 const REMINDER_DB = 'today-fulfillment-backup';

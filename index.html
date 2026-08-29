@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icon.svg" />
     <link rel="stylesheet" href="node_modules/@ionic/core/css/ionic.bundle.css" />
-    <link rel="stylesheet" href="styles.css?v=29" />
+    <link rel="stylesheet" href="styles.css?v=35" />
     <title>今日兑现</title>
   </head>
   <body data-view="today">
@@ -128,14 +128,26 @@
       </section>
 
       <section class="app-view" id="view-profile" data-view="profile" hidden>
-        <div class="page-intro"><p class="eyebrow">我的</p><h2>让工具适应你的节奏。</h2><p>当前为游客本地模式，数据只保存在这台设备的浏览器中。</p></div>
-        <section class="profile-card">
-          <div class="profile-mark"><img src="assets/growth-badge.png" alt="成长徽章"></div>
-          <div><p class="eyebrow">当前身份</p><h2>本地体验用户</h2><p>无需登录即可使用 P1 核心功能</p></div>
+        <div class="page-intro"><p class="eyebrow">我的</p><h2>让工具适应你的节奏。</h2><p id="profile-intro-copy">当前为游客本地模式，数据只保存在这台设备的浏览器中。</p></div>
+        <section class="account-card" aria-labelledby="account-heading">
+          <div class="account-heading-row">
+            <div class="profile-mark"><img src="assets/growth-badge.png" alt="成长徽章"></div>
+            <div class="account-heading-copy"><p class="eyebrow">账户与云端</p><h2 id="account-heading">本地体验用户</h2><p id="account-email">无需登录也能继续完成兑现</p></div>
+            <span class="sync-pill" id="sync-pill" data-phase="local"><i aria-hidden="true"></i><span>仅本机</span></span>
+          </div>
+          <div class="account-local" id="account-local">
+            <p>登录后可把任务、节点、专注记录、奖惩、设置和复盘安全保存到个人云端。</p>
+            <div class="account-actions"><button class="button primary" id="open-login" type="button">登录</button><button class="button outline" id="open-register" type="button">注册</button></div>
+            <small>Beta 开发测试：验证邮件暂仅用于项目所有者或团队授权邮箱。</small>
+          </div>
+          <div class="account-signed" id="account-signed" hidden>
+            <div class="sync-detail"><span>云同步状态</span><strong id="sync-status">正在检查…</strong><small id="sync-detail">本地数据会始终先保存，网络恢复后再同步。</small></div>
+            <div class="account-actions"><button class="button outline" id="sync-now" type="button">立即同步</button><button class="button quiet" id="sign-out" type="button">退出登录</button></div>
+          </div>
         </section>
         <section class="settings-card" aria-label="应用设置与信息">
-          <div><span>数据存储</span><strong>本机双重备份</strong></div>
-          <div><span>当前阶段</span><strong>P1</strong></div>
+          <div><span>数据存储</span><strong id="storage-status">本机双重备份</strong></div>
+          <div><span>当前阶段</span><strong>v1.1 Beta</strong></div>
           <div><span>PWA 状态</span><strong>支持安装</strong></div>
           <a class="settings-link feedback-link" href="https://pcngz2vyw6hl.feishu.cn/share/base/shrcnIy3JQYSGIynAsv46tx0d1b" target="_blank" rel="noopener noreferrer" aria-label="问题反馈：告诉我们你的体验与建议（在新标签页打开）">
             <span class="settings-link-icon" aria-hidden="true"><img src="node_modules/@ionic/core/dist/ionic/svg/chatbubble-ellipses-outline.svg" alt=""></span>
@@ -145,7 +157,7 @@
         </section>
         <section class="preference-card backup-card" aria-labelledby="backup-heading">
           <div class="section-heading compact"><div><p class="eyebrow">本地数据安全</p><h2 id="backup-heading">给学习记录留一份可带走的备份</h2></div></div>
-          <p class="backup-copy">数据不会自动同步到云端。建议定期导出；换设备或清理浏览器数据前尤其需要备份。</p>
+          <p class="backup-copy">无论是否登录，都建议定期导出；换设备或清理浏览器数据前尤其需要备份。</p>
           <div class="backup-actions"><button class="button quiet" id="export-backup" type="button">导出备份</button><button class="button outline" id="import-backup" type="button">导入备份</button><input id="import-backup-file" type="file" accept="application/json,.json" hidden aria-label="选择今日兑现备份文件"></div>
         </section>
         <section class="preference-card analytics-preference-card" aria-labelledby="analytics-heading">
@@ -182,9 +194,14 @@
     <dialog id="interrupt-dialog" class="modal"><form id="interrupt-form"><div class="modal-head"><div><p class="eyebrow">突发情况</p><h2>这次先停下，进度会保留</h2></div><button class="icon-button" type="button" id="interrupt-close" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><label>发生了什么<textarea id="interrupt-reason" maxlength="300" required placeholder="例如：身体不适、临时紧急事务"></textarea></label><p class="muted">适合无法预料、不能短时间返回的情况；不占用短暂休息额度。跨过 24:00 后会转为黄色待补。</p><button class="button primary" type="submit">保留进度并退出</button></form></dialog>
     <dialog id="onboarding-dialog" class="modal onboarding-modal"><div><div class="onboarding-head"><img src="assets/growth-badge.png" alt="植物成长徽章"><div><p class="eyebrow">第一次使用</p><h2>完成一件，就是一次兑现</h2></div></div><ol class="onboarding-steps"><li><strong>写下一件要完成的事</strong><span>先守住最重要的一件，不必把今天排满。</span></li><li><strong>开始专注，按需拆节点</strong><span>长任务可拆步骤；短任务直接开始即可。</span></li><li><strong>完成后如实记录</strong><span>短暂休息和突发情况都有合适的处理方式。</span></li></ol><div class="modal-actions"><button class="button quiet" id="onboarding-dismiss" type="button">先看看</button><button class="button primary" id="onboarding-create" type="button">创建第一件任务</button></div></div></dialog>
     <dialog id="confirm-dialog" class="modal confirm-modal"><div><p class="eyebrow">请确认</p><h2 id="confirm-title">确认操作</h2><p id="confirm-message"></p><div class="modal-actions"><button class="button quiet" id="confirm-cancel" type="button">取消</button><button class="button primary" id="confirm-accept" type="button">确认</button></div></div></dialog>
+    <dialog id="auth-dialog" class="modal auth-modal"><div><div class="modal-head"><div><p class="eyebrow">账户</p><h2 id="auth-title">登录今日兑现</h2></div><button class="icon-button" id="auth-close" type="button" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><div class="auth-tabs" role="tablist" aria-label="账户操作"><button class="active" type="button" data-auth-mode="login" role="tab" aria-selected="true">登录</button><button type="button" data-auth-mode="register" role="tab" aria-selected="false">注册</button></div><form id="auth-form" novalidate><label>邮箱<input id="auth-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="name@example.com"></label><label>密码<input id="auth-password" name="password" type="password" minlength="8" autocomplete="current-password" required placeholder="至少 8 位"></label><label class="auth-register-only" id="confirm-password-label" hidden>确认密码<input id="auth-confirm-password" name="confirm-password" type="password" minlength="8" autocomplete="new-password" placeholder="再次输入密码"></label><label class="privacy-check auth-register-only" id="auth-privacy-label" hidden><input id="auth-privacy" type="checkbox"><span>我了解：账户用于保存个人任务数据；开发测试邮件由 Supabase 发送。</span></label><p class="form-message auth-message" id="auth-message" role="status"></p><button class="button primary auth-submit" id="auth-submit" type="submit">登录</button><button class="text-button" id="resend-confirmation" type="button" hidden>重新发送验证邮件</button><button class="text-button" id="forgot-password" type="button">忘记密码</button></form></div></dialog>
+    <dialog id="password-reset-dialog" class="modal auth-modal"><form id="password-reset-form"><div class="modal-head"><div><p class="eyebrow">找回密码</p><h2>发送重设邮件</h2></div><button class="icon-button" id="password-reset-close" type="button" aria-label="关闭"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><p class="muted">输入注册邮箱。收到邮件后，请通过一次性链接设置新密码。</p><label>邮箱<input id="password-reset-email" type="email" autocomplete="email" inputmode="email" required placeholder="name@example.com"></label><p class="form-message" id="password-reset-message" role="status"></p><button class="button primary" type="submit">发送重设邮件</button></form></dialog>
+    <dialog id="new-password-dialog" class="modal auth-modal"><form id="new-password-form"><div class="modal-head"><div><p class="eyebrow">账户安全</p><h2>设置新密码</h2></div></div><label>新密码<input id="new-password" type="password" minlength="8" autocomplete="new-password" required placeholder="至少 8 位"></label><label>确认新密码<input id="new-password-confirm" type="password" minlength="8" autocomplete="new-password" required placeholder="再次输入密码"></label><p class="form-message" id="new-password-message" role="status"></p><button class="button primary" type="submit">保存新密码</button></form></dialog>
+    <dialog id="sync-choice-dialog" class="modal sync-choice-modal"><div><div class="modal-head"><div><p class="eyebrow">数据确认</p><h2 id="sync-choice-title">选择要保留的数据</h2></div><button class="icon-button" id="sync-choice-close" type="button" aria-label="稍后处理"><img src="node_modules/@ionic/core/dist/ionic/svg/close.svg" alt=""></button></div><p id="sync-choice-message">本机和云端都有数据，请明确选择。</p><div class="sync-comparison" id="sync-comparison"></div><div class="sync-choice-actions"><button class="button primary" id="sync-choice-cloud" type="button">使用云端数据</button><button class="button outline" id="sync-choice-local" type="button">保留本机数据并覆盖云端</button></div><p class="sync-choice-note">选择前可以先关闭此窗口并导出本地 JSON 备份。不会自动合并或静默覆盖。</p></div></dialog>
     <ion-alert id="ionic-alert"></ion-alert>
     <div class="celebration" id="celebration" hidden aria-hidden="true"><div class="celebration-card"><img src="assets/growth-badge.png" alt=""><strong>兑现成功</strong><span>这一件事，已经认真完成。</span></div></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=29"></script>
+  <script src="node_modules/@supabase/supabase-js/dist/umd/supabase.js"></script>
+  <script type="module" src="app.js?v=35"></script>
   </body>
 </html>

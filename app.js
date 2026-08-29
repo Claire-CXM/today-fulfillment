@@ -1,4 +1,3 @@
-import { defineCustomElements } from './node_modules/@ionic/core/loader/index.es2017.js';
 import {
   PAUSE_LIMIT_COUNT,
   PAUSE_LIMIT_SECONDS,
@@ -17,11 +16,11 @@ import {
   sortTasksForDisplay,
   taskProgress,
   warningMinutes
-} from './logic.js?v=29';
-import { createPortableBackup, flushPersistedState, loadPersistedState, parsePortableBackup, requestPersistentStorage, savePersistedState } from './storage.js?v=29';
-import { configureAnalytics, durationBucket, shouldTrackDailyFulfillment, trackAnalyticsEvent } from './analytics.js?v=29';
-
-defineCustomElements(window);
+} from './logic.js?v=35';
+import { createPortableBackup, flushPersistedState, loadPersistedState, parsePortableBackup, requestPersistentStorage, savePersistedState } from './storage.js?v=35';
+import { configureAnalytics, durationBucket, shouldTrackDailyFulfillment, trackAnalyticsEvent } from './analytics.js?v=35';
+import { createCloudSync } from './cloud-sync.js?v=35';
+import { supabaseClient } from './supabase-client.js?v=35';
 
 const MAX_NODES = 10;
 const SUGGESTION_POOL = [
@@ -49,8 +48,8 @@ const els = {
   taskList: $('#task-list'), taskForm: $('#task-form'), title: $('#task-title'), duration: $('#task-duration'), formMessage: $('#form-message'), taskCount: $('#task-count'), dailyScore: $('#daily-score'), dailyGoalStatus: $('#daily-goal-status'), dailyJourney: $('#daily-journey'), dailyPathFill: $('#daily-path-fill'), dailyPathCaption: $('#daily-path-caption'), dailyNote: $('#daily-note'), todayButton: $('#today-button'), openCreateTask: $('#open-create-task'), closeTaskEditor: $('#close-task-editor'), cancelTaskEditor: $('#cancel-task-editor'), taskEditorEyebrow: $('#task-editor-eyebrow'), taskEditorHeading: $('#task-editor-heading'), saveTaskButton: $('#save-task-button'), saveStartTaskButton: $('#save-start-task-button'), durationHint: $('#duration-hint'), suggestionCard: $('#suggestion-card'), suggestionList: $('#suggestion-list'), shuffleSuggestions: $('#shuffle-suggestions'), publishAllSuggestions: $('#publish-all-suggestions'), todayStageCard: $('#today-stage-card'),
   focusTitle: $('#focus-title'), focusState: $('#focus-state'), timer: $('#timer'), focusProgress: $('#focus-progress'), focusProgressBar: $('#focus-progress-bar'), focusNodeList: $('#focus-node-list'), pauseButton: $('#pause-button'), finishButton: $('#finish-button'), interruptButton: $('#interrupt-button'), pauseHint: $('#pause-hint'), leaveFocus: $('#leave-focus'), floatTimerButton: $('#float-timer-button'), miniFocusBar: $('#mini-focus-bar'), miniFocusTitle: $('#mini-focus-title'), miniFocusTime: $('#mini-focus-time'),
   monthCalendar: $('#month-calendar'), monthLabel: $('#month-label'), previousMonth: $('#previous-month'), nextMonth: $('#next-month'), dayDetail: $('#day-detail'), freeDayCount: $('#free-day-count'), freeDayDate: $('#free-day-date'), useFreeDay: $('#use-free-day'), summaryFocus: $('#summary-focus'), summaryPauses: $('#summary-pauses'), summaryProgress: $('#summary-progress'), abandonNote: $('#abandon-note'), dailyReport: $('#daily-report'), monthlyReport: $('#monthly-report'),
-  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), usageAnalytics: $('#usage-analytics'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), testNotification: $('#test-notification'), reminderDiagnostics: $('#reminder-diagnostics'), exportBackup: $('#export-backup'), importBackup: $('#import-backup'), importBackupFile: $('#import-backup-file'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'),
-  warningDialog: $('#warning-dialog'), warningTitle: $('#warning-title'), warningCopy: $('#warning-copy'), warningContinue: $('#warning-continue'), rewardDialog: $('#reward-dialog'), rewardTaskName: $('#reward-task-name'), rewardOptions: $('#reward-options'), shuffleRewards: $('#shuffle-rewards'), claimReward: $('#claim-reward'), penaltyDialog: $('#penalty-dialog'), penaltyTitle: $('#penalty-title'), penaltyTrigger: $('#penalty-trigger'), penaltyContent: $('#penalty-content'), penaltyLater: $('#penalty-later'), penaltyDone: $('#penalty-done'), appealDialog: $('#appeal-dialog'), appealForm: $('#appeal-form'), appealReason: $('#appeal-reason'), appealHonesty: $('#appeal-honesty'), appealClose: $('#appeal-close'), appealResult: $('#appeal-result'), interruptDialog: $('#interrupt-dialog'), interruptForm: $('#interrupt-form'), interruptReason: $('#interrupt-reason'), interruptClose: $('#interrupt-close'), onboardingDialog: $('#onboarding-dialog'), onboardingDismiss: $('#onboarding-dismiss'), onboardingCreate: $('#onboarding-create'), confirmDialog: $('#confirm-dialog'), confirmTitle: $('#confirm-title'), confirmMessage: $('#confirm-message'), confirmCancel: $('#confirm-cancel'), confirmAccept: $('#confirm-accept'), ionicAlert: $('#ionic-alert'), celebration: $('#celebration'), todayNavBadge: $('#today-nav-badge'), toast: $('#toast'), nodeDialog: $('#node-dialog'), nodeDialogTitle: $('#node-dialog-title'), nodeForm: $('#node-form'), nodeList: $('#node-list'), nodeAllocation: $('#node-allocation'), addNodeButton: $('#add-node-button'), smartSplitButton: $('#smart-split-button'), abandonFocusButton: $('#abandon-focus-button')
+  promptStyle: $('#prompt-style'), guiltCopy: $('#guilt-copy'), reduceMotion: $('#reduce-motion'), usageAnalytics: $('#usage-analytics'), reminderTime: $('#reminder-time'), notificationPermission: $('#notification-permission'), notificationStatus: $('#notification-status'), testNotification: $('#test-notification'), reminderDiagnostics: $('#reminder-diagnostics'), exportBackup: $('#export-backup'), importBackup: $('#import-backup'), importBackupFile: $('#import-backup-file'), rewardForm: $('#reward-form'), rewardInput: $('#reward-input'), rewardList: $('#reward-list'), rewardHistory: $('#reward-history'), rewardCount: $('#reward-count'), punishmentForm: $('#punishment-form'), punishmentInput: $('#punishment-input'), punishmentList: $('#punishment-list'), penaltyHistory: $('#penalty-history'), punishmentCount: $('#punishment-count'), stageRewardCard: $('#stage-reward-card'), profileIntroCopy: $('#profile-intro-copy'), accountHeading: $('#account-heading'), accountEmail: $('#account-email'), accountLocal: $('#account-local'), accountSigned: $('#account-signed'), syncPill: $('#sync-pill'), syncStatus: $('#sync-status'), syncDetail: $('#sync-detail'), storageStatus: $('#storage-status'), openLogin: $('#open-login'), openRegister: $('#open-register'), syncNow: $('#sync-now'), signOut: $('#sign-out'),
+  bottomNav: $('.bottom-nav'), warningDialog: $('#warning-dialog'), warningTitle: $('#warning-title'), warningCopy: $('#warning-copy'), warningContinue: $('#warning-continue'), rewardDialog: $('#reward-dialog'), rewardTaskName: $('#reward-task-name'), rewardOptions: $('#reward-options'), shuffleRewards: $('#shuffle-rewards'), claimReward: $('#claim-reward'), penaltyDialog: $('#penalty-dialog'), penaltyTitle: $('#penalty-title'), penaltyTrigger: $('#penalty-trigger'), penaltyContent: $('#penalty-content'), penaltyLater: $('#penalty-later'), penaltyDone: $('#penalty-done'), appealDialog: $('#appeal-dialog'), appealForm: $('#appeal-form'), appealReason: $('#appeal-reason'), appealHonesty: $('#appeal-honesty'), appealClose: $('#appeal-close'), appealResult: $('#appeal-result'), interruptDialog: $('#interrupt-dialog'), interruptForm: $('#interrupt-form'), interruptReason: $('#interrupt-reason'), interruptClose: $('#interrupt-close'), onboardingDialog: $('#onboarding-dialog'), onboardingDismiss: $('#onboarding-dismiss'), onboardingCreate: $('#onboarding-create'), confirmDialog: $('#confirm-dialog'), confirmTitle: $('#confirm-title'), confirmMessage: $('#confirm-message'), confirmCancel: $('#confirm-cancel'), confirmAccept: $('#confirm-accept'), ionicAlert: $('#ionic-alert'), celebration: $('#celebration'), todayNavBadge: $('#today-nav-badge'), toast: $('#toast'), nodeDialog: $('#node-dialog'), nodeDialogTitle: $('#node-dialog-title'), nodeForm: $('#node-form'), nodeList: $('#node-list'), nodeAllocation: $('#node-allocation'), addNodeButton: $('#add-node-button'), smartSplitButton: $('#smart-split-button'), abandonFocusButton: $('#abandon-focus-button'), authDialog: $('#auth-dialog'), authTitle: $('#auth-title'), authClose: $('#auth-close'), authForm: $('#auth-form'), authEmail: $('#auth-email'), authPassword: $('#auth-password'), authConfirmPassword: $('#auth-confirm-password'), confirmPasswordLabel: $('#confirm-password-label'), authPrivacyLabel: $('#auth-privacy-label'), authPrivacy: $('#auth-privacy'), authMessage: $('#auth-message'), authSubmit: $('#auth-submit'), resendConfirmation: $('#resend-confirmation'), forgotPassword: $('#forgot-password'), passwordResetDialog: $('#password-reset-dialog'), passwordResetForm: $('#password-reset-form'), passwordResetEmail: $('#password-reset-email'), passwordResetMessage: $('#password-reset-message'), passwordResetClose: $('#password-reset-close'), newPasswordDialog: $('#new-password-dialog'), newPasswordForm: $('#new-password-form'), newPassword: $('#new-password'), newPasswordConfirm: $('#new-password-confirm'), newPasswordMessage: $('#new-password-message'), syncChoiceDialog: $('#sync-choice-dialog'), syncChoiceTitle: $('#sync-choice-title'), syncChoiceMessage: $('#sync-choice-message'), syncComparison: $('#sync-comparison'), syncChoiceCloud: $('#sync-choice-cloud'), syncChoiceLocal: $('#sync-choice-local'), syncChoiceClose: $('#sync-choice-close')
 };
 
 let state = freshState();
@@ -72,6 +71,9 @@ let confirmResolver = null;
 let pipWindow = null;
 let pipTimeElement = null;
 let pendingFulfillmentTrackingDate = null;
+let authMode = 'login';
+let accountStatus = { phase: supabaseClient ? 'local' : 'unavailable', user: null, decision: null, error: null, lastSyncedAt: null, remoteSummary: null };
+let cloudSync = null;
 
 function dateKey(date = new Date()) { const offset = date.getTimezoneOffset() * 60000; return new Date(date - offset).toISOString().slice(0, 10); }
 function localDate(date = new Date()) { return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(date); }
@@ -107,7 +109,23 @@ function normalizeState(persisted) {
     });
     return parsed;
 }
-function saveState() { if (appInitialized) savePersistedState(state); }
+function hasPersonalData(candidate) {
+  if (!candidate) return false;
+  const meaningfulArrays = ['tasks', 'events', 'claimedRewards', 'pendingRewardTaskIds', 'penaltyRecords', 'freeDays', 'stageRewardsUnlocked', 'reminderDeliveries', 'monthlyReports'];
+  if (meaningfulArrays.some(key => Array.isArray(candidate[key]) && candidate[key].length)) return true;
+  if (candidate.settings?.onboardingCompleted) return true;
+  const rewardContents = (candidate.rewards || []).map(item => item.content);
+  const punishmentContents = (candidate.punishments || []).map(item => item.content);
+  if (JSON.stringify(rewardContents) !== JSON.stringify(DEFAULT_REWARDS)) return true;
+  if (JSON.stringify(punishmentContents) !== JSON.stringify(DEFAULT_PUNISHMENTS)) return true;
+  const settings = candidate.settings || {};
+  return settings.promptStyle !== 'gentle' || Boolean(settings.guiltCopy) || Boolean(settings.reduceMotion) || settings.usageAnalytics === false || (settings.reminderTime && settings.reminderTime !== '10:00');
+}
+function saveState({ sync = true } = {}) {
+  if (!appInitialized) return;
+  savePersistedState(state);
+  if (sync) cloudSync?.schedule(state);
+}
 function todayTasks() { return state.tasks.filter(task => task.date === dateKey()); }
 function visibleTasks() { return sortTasksForDisplay(todayTasks().filter(task => task.status !== 'abandoned')); }
 function activeTask() { return state.tasks.find(task => task.status === 'in_progress'); }
@@ -118,6 +136,130 @@ function formatTime(seconds) { const safe = Math.max(0, Math.round(seconds)); co
 function formatDuration(minutes) { const safe = Number(minutes); return safe >= 60 ? `${Number((safe / 60).toFixed(2))} 小时` : `${safe} 分钟`; }
 function taskStatus(task) { return ({ planned: '待开始', makeup: '黄色待补', in_progress: '专注中', paused: '短暂休息', interrupted: '突发中断', completed: '已完成', failed: '已结束', abandoned: '无法继续' })[task.status] || '待开始'; }
 function toast(message) { els.toast.textContent = message; els.toast.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => els.toast.classList.remove('show'), 3200); }
+function formatSyncTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function renderAccount() {
+  const loggedIn = Boolean(accountStatus.user);
+  els.accountLocal.hidden = loggedIn;
+  els.accountSigned.hidden = !loggedIn;
+  els.accountHeading.textContent = loggedIn ? '邮箱账户' : '本地体验用户';
+  els.accountEmail.textContent = loggedIn ? accountStatus.user.email : '无需登录也能继续完成兑现';
+  els.profileIntroCopy.textContent = loggedIn ? '本机仍可离线使用；登录后会按你的选择同步个人数据。' : '当前为游客本地模式，数据只保存在这台设备的浏览器中。';
+  els.storageStatus.textContent = loggedIn ? '本机双重备份 + 个人云端' : '本机双重备份';
+  const labels = {
+    unavailable: '仅本机', local: '仅本机', checking: '检查中', syncing: '同步中', pending: '待同步', synced: '已同步', error: '同步失败', 'action-required': '等待选择'
+  };
+  const details = {
+    checking: '正在安全读取你的个人云端快照。',
+    syncing: '本机已保存，正在写入个人云端。',
+    pending: navigator.onLine === false
+      ? '当前离线；本机已保存。联网后若今天尚未同步会自动补上，也可手动同步。'
+      : accountStatus.automaticSyncDue
+        ? '本机已保存，今天的自动同步将在短暂等待后完成。'
+        : '本机已保存；今天已自动同步过，下个自然日会继续同步，也可点击立即同步。',
+    synced: accountStatus.lastSyncedAt ? `最近同步：${formatSyncTime(accountStatus.lastSyncedAt)}` : '本机与云端数据一致。',
+    error: '本机数据已安全保存。请检查网络后重试云同步。',
+    'action-required': '为避免覆盖，请先明确选择保留本机还是云端数据。',
+    local: '未登录，所有操作继续保存在本机。',
+    unavailable: '云端组件未加载，本地功能不受影响。'
+  };
+  els.syncPill.dataset.phase = accountStatus.phase;
+  els.syncPill.querySelector('span').textContent = labels[accountStatus.phase] || '仅本机';
+  if (loggedIn) {
+    els.syncStatus.textContent = labels[accountStatus.phase] || '待同步';
+    els.syncDetail.textContent = details[accountStatus.phase] || '本地数据会始终先保存。';
+    els.syncNow.textContent = accountStatus.phase === 'action-required' ? '选择数据' : accountStatus.phase === 'error' ? '重试同步' : '立即同步';
+    els.syncNow.disabled = ['checking', 'syncing'].includes(accountStatus.phase);
+  }
+}
+function showSyncDecision() {
+  if (accountStatus.phase !== 'action-required') return;
+  const localTasks = Array.isArray(state.tasks) ? state.tasks.length : 0;
+  const localEvents = Array.isArray(state.events) ? state.events.length : 0;
+  const remote = accountStatus.remoteSummary;
+  els.syncComparison.innerHTML = `<div><span>本机</span><strong>${localTasks} 项任务</strong><small>${localEvents} 条过程记录</small></div><div><span>云端</span><strong>${remote?.taskCount || 0} 项任务</strong><small>${remote?.eventCount || 0} 条过程记录${remote?.updatedAt ? ` · ${formatSyncTime(remote.updatedAt)}` : ''}</small></div>`;
+  const decision = accountStatus.decision;
+  els.syncChoiceCloud.hidden = decision === 'upload';
+  els.syncChoiceLocal.hidden = decision === 'restore';
+  if (decision === 'upload') {
+    els.syncChoiceTitle.textContent = '同步本机数据到云端';
+    els.syncChoiceMessage.textContent = '云端还没有个人数据。确认后会把当前设备的数据作为第一份云端快照。';
+    els.syncChoiceLocal.textContent = '确认同步本机数据';
+  } else if (decision === 'restore') {
+    els.syncChoiceTitle.textContent = '从云端恢复数据';
+    els.syncChoiceMessage.textContent = '这台设备还没有个人数据。确认后会把云端快照恢复到本机。';
+    els.syncChoiceCloud.textContent = '确认使用云端数据';
+  } else {
+    els.syncChoiceTitle.textContent = '选择要保留的数据';
+    els.syncChoiceMessage.textContent = '本机和云端都有不同数据。v1.1 不自动合并，请明确选择一个版本。';
+    els.syncChoiceCloud.textContent = '使用云端数据';
+    els.syncChoiceLocal.textContent = '保留本机数据并覆盖云端';
+  }
+  if (!els.syncChoiceDialog.open && !document.querySelector('dialog[open]')) els.syncChoiceDialog.showModal();
+}
+function handleAccountChange(nextStatus) {
+  const previousPhase = accountStatus.phase;
+  accountStatus = nextStatus;
+  renderAccount();
+  if (appInitialized && accountStatus.phase === 'action-required' && previousPhase !== 'action-required') setTimeout(showSyncDecision, 80);
+}
+function openAuthDialog(mode = 'login') {
+  setAuthMode(mode);
+  els.authMessage.textContent = '';
+  els.authDialog.showModal();
+  setTimeout(() => els.authEmail.focus(), 60);
+}
+function setAuthMode(mode) {
+  authMode = mode === 'register' ? 'register' : 'login';
+  const registering = authMode === 'register';
+  els.authTitle.textContent = registering ? '注册今日兑现' : '登录今日兑现';
+  els.authSubmit.textContent = registering ? '注册并发送验证邮件' : '登录';
+  els.confirmPasswordLabel.hidden = !registering;
+  els.authPrivacyLabel.hidden = !registering;
+  els.authConfirmPassword.required = registering;
+  els.authPrivacy.required = registering;
+  els.authPassword.autocomplete = registering ? 'new-password' : 'current-password';
+  els.resendConfirmation.hidden = true;
+  els.forgotPassword.hidden = registering;
+  document.querySelectorAll('[data-auth-mode]').forEach(button => {
+    const active = button.dataset.authMode === authMode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  els.authMessage.textContent = '';
+}
+function authErrorMessage(error) {
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('invalid login credentials')) return '邮箱或密码不正确。';
+  if (message.includes('email not confirmed')) return '请先打开验证邮件，完成邮箱验证后再登录。';
+  if (message.includes('password')) return '密码至少需要 8 位，请检查后重试。';
+  if (message.includes('rate') || message.includes('too many')) return '操作过于频繁，请稍后再试。';
+  if (message.includes('fetch') || message.includes('network')) return '网络连接失败，本地功能仍可继续使用。';
+  return '账户操作未完成，请检查输入或稍后重试。';
+}
+function createCloudIntegration() {
+  cloudSync = createCloudSync({
+    client: supabaseClient,
+    getState: () => state,
+    hasData: hasPersonalData,
+    applyState: async incoming => {
+      stopTicker();
+      state = normalizeState(incoming);
+      savePersistedState(state);
+      configureAnalytics(state.settings.usageAnalytics);
+      render();
+      if (focusTask()) startTicker();
+    },
+    onChange: handleAccountChange,
+    onPasswordRecovery: () => {
+      if (!els.newPasswordDialog.open) els.newPasswordDialog.showModal();
+    }
+  });
+}
 function availableTodayMinutes(excludeTaskId = null) { return availableMinutesUntilMidnight(new Date(), todayTasks(), excludeTaskId); }
 function isTimeAllowed(minutes, excludeTaskId = null) { return isTaskTimeAllowed(new Date(), todayTasks(), minutes, excludeTaskId); }
 function addEvent(type, task, details = {}) { state.events.push({ id: uid(), type, taskId: task.id, taskTitle: task.title, at: new Date().toISOString(), date: task.date, ...details }); }
@@ -157,6 +299,7 @@ function render() {
   renderSummary(tasks);
   renderReports();
   renderPreferences();
+  renderAccount();
   renderPools();
   renderStageRewards();
 }
@@ -381,7 +524,7 @@ async function abandonTask(task) {
 }
 function updateRunningTask(task) { if (task.status !== 'in_progress') return; const advanced = advanceRunningTimer(task, Date.now()); task.remainingSeconds = advanced.remainingSeconds; task.focusedSeconds = advanced.focusedSeconds; task.lastTickAt = advanced.lastTickAt; maybeWarn(task); if (task.remainingSeconds === 0) { task.status = 'failed'; task.failedAt = new Date().toISOString(); task.lastTickAt = null; addEvent('timed_out', task); closeTimerFloat(); if (currentView === 'focus') switchView('today'); toast(`“${task.title}”倒计时结束。你有一次申辩机会。`); } }
 function updatePausedTask(task) { if (task.status !== 'paused') return; const base = task.pauseUsedSeconds || 0; const elapsed = Math.max(0, Math.floor((Date.now() - (task.pausedAt || Date.now())) / 1000)); if (base + elapsed >= PAUSE_LIMIT_SECONDS) { const resumeAt = (task.pausedAt || Date.now()) + Math.max(0, PAUSE_LIMIT_SECONDS - base) * 1000; task.pauseUsedSeconds = PAUSE_LIMIT_SECONDS; task.status = 'in_progress'; task.lastTickAt = resumeAt; addEvent('pause_limit_reached', task); updateRunningTask(task); toast('45 分钟短暂休息已用完，已自动恢复专注。'); } }
-function tick() { if (!appInitialized) return; state.tasks.forEach(task => { if (task.status === 'paused') updatePausedTask(task); else updateRunningTask(task); }); saveState(); render(); if (!focusTask()) stopTicker(); }
+function tick() { if (!appInitialized) return; state.tasks.forEach(task => { if (task.status === 'paused') updatePausedTask(task); else updateRunningTask(task); }); saveState({ sync: false }); render(); if (!focusTask()) stopTicker(); }
 function startTicker() { if (!timerId) timerId = setInterval(tick, 1000); }
 function stopTicker() { clearInterval(timerId); timerId = null; }
 
@@ -546,7 +689,11 @@ function closeTimerFloat() { if (pipWindow && !pipWindow.closed) pipWindow.close
 
 els.taskForm.addEventListener('submit', event => { event.preventDefault(); saveTaskFromForm(event.submitter?.dataset.saveMode === 'start'); });
 els.openCreateTask.addEventListener('click', () => openTaskEditor());
-document.querySelectorAll('.nav-item').forEach(button => button.addEventListener('click', () => switchView(button.dataset.target)));
+els.bottomNav.addEventListener('click', event => {
+  const button = event.target.closest('.nav-item[data-target]');
+  if (!button || !els.bottomNav.contains(button)) return;
+  switchView(button.dataset.target);
+});
 els.closeTaskEditor.addEventListener('click', closeTaskEditor);
 els.cancelTaskEditor.addEventListener('click', closeTaskEditor);
 document.querySelectorAll('[data-duration-unit]').forEach(button => button.addEventListener('click', () => changeDurationUnit(button.dataset.durationUnit)));
@@ -608,6 +755,122 @@ els.testNotification.addEventListener('click', testNotificationDelivery);
 els.exportBackup.addEventListener('click', exportLocalBackup);
 els.importBackup.addEventListener('click', () => els.importBackupFile.click());
 els.importBackupFile.addEventListener('change', () => importLocalBackup(els.importBackupFile.files?.[0]));
+els.openLogin.addEventListener('click', () => openAuthDialog('login'));
+els.openRegister.addEventListener('click', () => openAuthDialog('register'));
+els.authClose.addEventListener('click', () => els.authDialog.close());
+document.querySelectorAll('[data-auth-mode]').forEach(button => button.addEventListener('click', () => setAuthMode(button.dataset.authMode)));
+els.authForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!cloudSync) return;
+  const email = els.authEmail.value.trim();
+  const password = els.authPassword.value;
+  els.authMessage.textContent = '';
+  if (!email || password.length < 8) { els.authMessage.textContent = '请输入有效邮箱和至少 8 位密码。'; return; }
+  if (authMode === 'register') {
+    if (password !== els.authConfirmPassword.value) { els.authMessage.textContent = '两次输入的密码不一致。'; return; }
+    if (!els.authPrivacy.checked) { els.authMessage.textContent = '请先确认账户与云端数据提示。'; return; }
+  }
+  els.authSubmit.disabled = true;
+  try {
+    const { data, error } = authMode === 'register' ? await cloudSync.signUp(email, password) : await cloudSync.signIn(email, password);
+    if (error) throw error;
+    if (authMode === 'register') {
+      els.authMessage.textContent = data?.session ? '注册成功，已登录。' : '验证邮件已发送。请在运行本地站的同一台电脑上只打开一次链接；失效时可重新发送。';
+      els.resendConfirmation.hidden = Boolean(data?.session);
+      if (data?.session) setTimeout(() => els.authDialog.close(), 450);
+    } else {
+      els.authDialog.close();
+      els.authForm.reset();
+      toast('登录成功，正在检查本机与云端数据。');
+    }
+  } catch (error) {
+    els.authMessage.textContent = authErrorMessage(error);
+  } finally {
+    els.authSubmit.disabled = false;
+  }
+});
+els.resendConfirmation.addEventListener('click', async () => {
+  const email = els.authEmail.value.trim();
+  if (!email) { els.authMessage.textContent = '请先输入注册邮箱。'; return; }
+  els.resendConfirmation.disabled = true;
+  try {
+    const { error } = await cloudSync.resendConfirmation(email);
+    if (error) throw error;
+    els.authMessage.textContent = '新的验证邮件已发送。请在同一台运行本地站的电脑上只打开一次链接。';
+  } catch (error) {
+    els.authMessage.textContent = authErrorMessage(error);
+  } finally {
+    els.resendConfirmation.disabled = false;
+  }
+});
+els.forgotPassword.addEventListener('click', () => {
+  els.passwordResetEmail.value = els.authEmail.value.trim();
+  els.passwordResetMessage.textContent = '';
+  els.authDialog.close();
+  els.passwordResetDialog.showModal();
+});
+els.passwordResetClose.addEventListener('click', () => els.passwordResetDialog.close());
+els.passwordResetForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const email = els.passwordResetEmail.value.trim();
+  const submit = event.submitter;
+  submit.disabled = true;
+  els.passwordResetMessage.textContent = '';
+  try {
+    const { error } = await cloudSync.sendPasswordReset(email);
+    if (error) throw error;
+    els.passwordResetMessage.textContent = '如果该邮箱已注册，你会收到一次性密码重设邮件。';
+  } catch (error) {
+    els.passwordResetMessage.textContent = authErrorMessage(error);
+  } finally {
+    submit.disabled = false;
+  }
+});
+els.newPasswordForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const password = els.newPassword.value;
+  els.newPasswordMessage.textContent = '';
+  if (password.length < 8) { els.newPasswordMessage.textContent = '新密码至少需要 8 位。'; return; }
+  if (password !== els.newPasswordConfirm.value) { els.newPasswordMessage.textContent = '两次输入的新密码不一致。'; return; }
+  const submit = event.submitter;
+  submit.disabled = true;
+  try {
+    const { error } = await cloudSync.updatePassword(password);
+    if (error) throw error;
+    els.newPasswordDialog.close();
+    els.newPasswordForm.reset();
+    history.replaceState({}, '', location.pathname);
+    toast('新密码已保存。');
+  } catch (error) {
+    els.newPasswordMessage.textContent = authErrorMessage(error);
+  } finally {
+    submit.disabled = false;
+  }
+});
+els.signOut.addEventListener('click', async () => {
+  els.signOut.disabled = true;
+  const { error } = await cloudSync.signOut();
+  els.signOut.disabled = false;
+  if (error) { toast('退出登录未完成，请稍后重试。'); return; }
+  toast('已退出登录，本机数据仍然保留。');
+});
+els.syncNow.addEventListener('click', async () => {
+  if (accountStatus.phase === 'action-required') { showSyncDecision(); return; }
+  await cloudSync.syncNow();
+});
+els.syncChoiceClose.addEventListener('click', () => els.syncChoiceDialog.close());
+els.syncChoiceCloud.addEventListener('click', async () => {
+  els.syncChoiceCloud.disabled = true;
+  const resolved = await cloudSync.resolveDecision('cloud');
+  els.syncChoiceCloud.disabled = false;
+  if (resolved) { els.syncChoiceDialog.close(); toast('已使用云端数据，并恢复到本机。'); }
+});
+els.syncChoiceLocal.addEventListener('click', async () => {
+  els.syncChoiceLocal.disabled = true;
+  const resolved = await cloudSync.resolveDecision('local');
+  els.syncChoiceLocal.disabled = false;
+  if (resolved) { els.syncChoiceDialog.close(); toast('本机数据已安全同步到云端。'); }
+});
 els.rewardForm.addEventListener('submit', event => { event.preventDefault(); const content = els.rewardInput.value.trim(); if (!content) return; state.rewards.push({ id: uid(), content }); els.rewardForm.reset(); saveState(); renderPools(); });
 els.punishmentForm.addEventListener('submit', event => { event.preventDefault(); const content = els.punishmentInput.value.trim(); if (!content) return; state.punishments.push({ id: uid(), content }); els.punishmentForm.reset(); saveState(); renderPools(); });
 els.rewardList.addEventListener('click', event => { const button = event.target.closest('[data-remove-reward]'); if (!button) return; state.rewards = state.rewards.filter(item => item.id !== button.dataset.removeReward); saveState(); renderPools(); });
@@ -652,6 +915,7 @@ async function initializeApp() {
   const restored = await loadPersistedState();
   state = normalizeState(restored.state);
   const shouldShowOnboarding = !restored.found && !state.tasks.length && !state.settings.onboardingCompleted;
+  createCloudIntegration();
   appInitialized = true;
   rolloverInterruptedTasks();
   ensurePreviousMonthReport();
@@ -661,16 +925,19 @@ async function initializeApp() {
   switchView(currentView);
   document.body.classList.remove('app-loading');
   configureAnalytics(state.settings.usageAnalytics);
+  void cloudSync.start();
   if (focusTask()) startTicker();
   if (restored.recovered) setTimeout(() => toast('已从本地安全备份恢复全部数据。'), 150);
   requestPersistentStorage();
   scheduleReminderCheck();
   configureBackgroundReminder();
-  if (shouldShowOnboarding) setTimeout(() => { if (!document.querySelector('dialog[open]')) els.onboardingDialog.showModal(); }, 180);
+  if (shouldShowOnboarding) setTimeout(() => { if (!accountStatus.user && !document.querySelector('dialog[open]')) els.onboardingDialog.showModal(); }, 500);
 }
 initializeApp();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); checkReminderDelivery('visibility_resume'); scheduleReminderCheck(); } });
 window.addEventListener('pageshow', () => { tick(); checkReminderDelivery('pageshow'); scheduleReminderCheck(); });
+window.addEventListener('online', () => { void cloudSync?.handleOnline(); });
+window.addEventListener('offline', () => { if (accountStatus.user) cloudSync?.schedule(state); });
 window.addEventListener('pagehide', () => { saveState(); flushPersistedState(); });
 setTimeout(() => { if (appInitialized) { checkReminderDelivery('startup'); checkNoPlanPenalty(); } }, 600);
 setInterval(() => { if (!appInitialized) return; rolloverInterruptedTasks(); ensurePreviousMonthReport(); checkNoPlanPenalty(); saveState(); render(); }, 60000);
